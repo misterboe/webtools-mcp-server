@@ -1,0 +1,32 @@
+{
+  "name": "@bschauer/webtools-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for web tools",
+  "main": "src/index.js",
+  "bin": {
+    "webtools-mcp-server": "./src/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "web",
+    "scraping",
+    "markdown",
+    "html"
+  ],
+  "author": "bschauer",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "node-fetch": "^3.3.2",
+    "turndown": "^7.1.2",
+    "https-proxy-agent": "^7.0.2"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^22.8.2"
+  }
+}
