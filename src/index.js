@@ -1607,6 +1607,338 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
       }
+    } else if (name === "webtool_security") {
+      const { url, checkHeaders = true, checkDependencies = true, checkCsp = true, checkCertificate = true } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Security analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use security analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const securityData = {
+          url,
+          timestamp: new Date().toISOString(),
+          headers: {},
+          csp: null,
+          certificate: null,
+          dependencies: [],
+          issues: [],
+          summary: {
+            critical: 0,
+            high: 0,
+            medium: 0,
+            low: 0,
+          },
+        };
+
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          const client = await page.target().createCDPSession();
+          await client.send("Security.enable");
+
+          // Set up security event handlers
+          client.on("Security.securityStateChanged", ({ securityState, summary }) => {
+            securityData.issues.push({
+              type: "state_change",
+              state: securityState,
+              summary: summary,
+              timestamp: new Date().toISOString(),
+            });
+          });
+
+          // Intercept responses to analyze headers
+          if (checkHeaders) {
+            await page.setRequestInterception(true);
+            page.on("response", (response) => {
+              const headers = response.headers();
+              const securityHeaders = {
+                "Strict-Transport-Security": headers["strict-transport-security"],
+                "X-Content-Type-Options": headers["x-content-type-options"],
+                "X-Frame-Options": headers["x-frame-options"],
+                "X-XSS-Protection": headers["x-xss-protection"],
+                "Referrer-Policy": headers["referrer-policy"],
+                "Permissions-Policy": headers["permissions-policy"],
+                "Content-Security-Policy": headers["content-security-policy"],
+              };
+
+              // Analyze security headers
+              Object.entries(securityHeaders).forEach(([header, value]) => {
+                if (!value) {
+                  securityData.issues.push({
+                    type: "missing_header",
+                    severity: header === "Content-Security-Policy" ? "high" : "medium",
+                    header: header,
+                    recommendation: `Add ${header} header to improve security`,
+                  });
+                  securityData.summary[header === "Content-Security-Policy" ? "high" : "medium"]++;
+                }
+              });
+
+              securityData.headers = securityHeaders;
+            });
+
+            page.on("request", (request) => request.continue());
+          }
+
+          // Navigate to the page
+          const response = await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: 30000,
+          });
+
+          // Analyze CSP if enabled
+          if (checkCsp && response.headers()["content-security-policy"]) {
+            const csp = response.headers()["content-security-policy"];
+            securityData.csp = {
+              raw: csp,
+              directives: {},
+            };
+
+            // Parse CSP directives
+            csp.split(";").forEach((directive) => {
+              const [name, ...values] = directive.trim().split(/\s+/);
+              if (name) {
+                securityData.csp.directives[name] = values;
+              }
+            });
+
+            // Check for unsafe CSP directives
+            const unsafeDirectives = ["unsafe-inline", "unsafe-eval", "*"];
+            Object.entries(securityData.csp.directives).forEach(([directive, values]) => {
+              values.forEach((value) => {
+                if (unsafeDirectives.includes(value)) {
+                  securityData.issues.push({
+                    type: "unsafe_csp",
+                    severity: "high",
+                    directive: directive,
+                    value: value,
+                    recommendation: `Remove unsafe ${value} from ${directive} directive`,
+                  });
+                  securityData.summary.high++;
+                }
+              });
+            });
+          }
+
+          // Check certificate if enabled
+          if (checkCertificate) {
+            try {
+              const securityState = await page.evaluate(() => {
+                return {
+                  protocol: window.location.protocol,
+                  secure: window.location.protocol === "https:",
+                  certificate: window.performance.timing.secureConnectionStart > 0,
+                };
+              });
+
+              const response = await page.goto(url, { waitUntil: "networkidle0" });
+              const securityDetails = response.securityDetails();
+
+              if (securityDetails) {
+                securityData.certificate = {
+                  protocol: securityState.protocol,
+                  issuer: securityDetails.issuer(),
+                  validFrom: securityDetails.validFrom(),
+                  validTo: securityDetails.validTo(),
+                  subjectName: securityDetails.subjectName(),
+                  protocol: securityDetails.protocol(),
+                };
+
+                // Check certificate validity
+                const now = Date.now() / 1000;
+                if (now > securityDetails.validTo()) {
+                  securityData.issues.push({
+                    type: "expired_certificate",
+                    severity: "critical",
+                    details: "SSL certificate has expired",
+                    recommendation: "Renew SSL certificate immediately",
+                  });
+                  securityData.summary.critical++;
+                } else if (now > securityDetails.validTo() - 30 * 24 * 60 * 60) {
+                  securityData.issues.push({
+                    type: "expiring_certificate",
+                    severity: "high",
+                    details: "SSL certificate will expire soon",
+                    recommendation: "Plan to renew SSL certificate",
+                  });
+                  securityData.summary.high++;
+                }
+
+                if (!securityState.secure) {
+                  securityData.issues.push({
+                    type: "insecure_protocol",
+                    severity: "critical",
+                    details: "Site is not using HTTPS",
+                    recommendation: "Enable HTTPS for all connections",
+                  });
+                  securityData.summary.critical++;
+                }
+              } else {
+                securityData.issues.push({
+                  type: "certificate_info_unavailable",
+                  severity: "medium",
+                  details: "Could not retrieve certificate information",
+                  recommendation: "Verify SSL configuration manually",
+                });
+                securityData.summary.medium++;
+              }
+            } catch (certError) {
+              console.warn("Certificate check failed:", certError.message);
+              securityData.issues.push({
+                type: "certificate_check_failed",
+                severity: "medium",
+                details: "Failed to check certificate: " + certError.message,
+                recommendation: "Verify SSL configuration manually",
+              });
+              securityData.summary.medium++;
+            }
+          }
+
+          // Check for known vulnerable dependencies
+          if (checkDependencies) {
+            const scripts = await page.evaluate(() => {
+              return Array.from(document.getElementsByTagName("script"))
+                .map((script) => script.src)
+                .filter((src) => src.length > 0);
+            });
+
+            // Simple version extraction regex
+            const versionRegex = /[@/]([0-9]+\.[0-9]+\.[0-9]+)/;
+
+            scripts.forEach((script) => {
+              const match = script.match(versionRegex);
+              if (match) {
+                securityData.dependencies.push({
+                  url: script,
+                  version: match[1],
+                });
+
+                // Example vulnerability check (you would want to use a real vulnerability database)
+                if (script.includes("jquery") && match[1].startsWith("1.")) {
+                  securityData.issues.push({
+                    type: "vulnerable_dependency",
+                    severity: "high",
+                    dependency: "jQuery",
+                    version: match[1],
+                    recommendation: "Update jQuery to version 3.x or later",
+                  });
+                  securityData.summary.high++;
+                }
+              }
+            });
+          }
+
+          // Format the security report
+          const report = [
+            `# Security Analysis for ${url}`,
+            `Generated at: ${securityData.timestamp}`,
+            "",
+            "## Summary",
+            `- Critical Issues: ${securityData.summary.critical}`,
+            `- High Risk Issues: ${securityData.summary.high}`,
+            `- Medium Risk Issues: ${securityData.summary.medium}`,
+            `- Low Risk Issues: ${securityData.summary.low}`,
+            "",
+            "## Security Headers",
+            Object.entries(securityData.headers)
+              .map(([header, value]) => `### ${header}\n${value || "❌ Not Set"}`)
+              .join("\n\n"),
+            "",
+            securityData.csp
+              ? ["## Content Security Policy", "```", securityData.csp.raw, "```", "", "### Directives", ...Object.entries(securityData.csp.directives).map(([name, values]) => `- ${name}: ${values.join(" ")}`)].join("\n")
+              : "## Content Security Policy\n❌ Not Set",
+            "",
+            securityData.certificate
+              ? [
+                  "## SSL Certificate",
+                  `- Issuer: ${securityData.certificate.issuer}`,
+                  `- Valid From: ${new Date(securityData.certificate.validFrom * 1000).toISOString()}`,
+                  `- Valid To: ${new Date(securityData.certificate.validTo * 1000).toISOString()}`,
+                  `- Protocol: ${securityData.certificate.protocol}`,
+                  `- Cipher: ${securityData.certificate.cipher}`,
+                ].join("\n")
+              : "## SSL Certificate\nNot available",
+            "",
+            "## Dependencies",
+            securityData.dependencies.length > 0 ? securityData.dependencies.map((dep) => `- ${dep.url} (Version: ${dep.version})`).join("\n") : "No external dependencies detected",
+            "",
+            "## Security Issues",
+            securityData.issues.length > 0
+              ? securityData.issues
+                  .map((issue) =>
+                    [
+                      `### ${issue.type} (${issue.severity.toUpperCase()})`,
+                      issue.details ? `Details: ${issue.details}` : "",
+                      issue.directive ? `Directive: ${issue.directive}` : "",
+                      issue.value ? `Value: ${issue.value}` : "",
+                      `Recommendation: ${issue.recommendation}`,
+                    ]
+                      .filter(Boolean)
+                      .join("\n")
+                  )
+                  .join("\n\n")
+              : "No security issues detected",
+          ].join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Security analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+          suggestedSettings: {
+            checkHeaders: error.message.includes("headers") ? false : checkHeaders,
+            checkCsp: error.message.includes("csp") ? false : checkCsp,
+            checkCertificate: error.message.includes("certificate") ? false : checkCertificate,
+          },
+        };
+
+        logError("security", "Security analysis failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
     } else {
       return {
         content: [
