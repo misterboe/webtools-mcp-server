@@ -1939,6 +1939,585 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
       }
+    } else if (name === "webtool_accessibility") {
+      const { url, checkWcag = true, level = "AA", checkContrast = true, checkAria = true } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Accessibility analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use accessibility analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const accessibilityData = {
+          url,
+          timestamp: new Date().toISOString(),
+          summary: {
+            critical: 0,
+            serious: 0,
+            moderate: 0,
+            minor: 0,
+          },
+          wcagViolations: [],
+          ariaIssues: [],
+          contrastIssues: [],
+          structureIssues: [],
+        };
+
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setViewport({ width: 1280, height: 1024 });
+
+          await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: 30000,
+          });
+
+          // Basic structure checks
+          const structureChecks = await page.evaluate(() => {
+            const issues = [];
+
+            // Check for main landmark
+            if (!document.querySelector("main")) {
+              issues.push({
+                type: "missing_main",
+                severity: "serious",
+                message: "No main landmark found",
+                recommendation: "Add a <main> element to identify the main content",
+              });
+            }
+
+            // Check heading hierarchy
+            const headings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"));
+            let previousLevel = 0;
+            headings.forEach((heading) => {
+              const currentLevel = parseInt(heading.tagName[1]);
+              if (currentLevel - previousLevel > 1) {
+                issues.push({
+                  type: "skipped_heading",
+                  severity: "moderate",
+                  message: `Heading level skipped from h${previousLevel} to h${currentLevel}`,
+                  recommendation: "Ensure heading levels are not skipped",
+                  element: heading.outerHTML,
+                });
+              }
+              previousLevel = currentLevel;
+            });
+
+            // Check for alt text on images
+            const images = Array.from(document.querySelectorAll("img"));
+            images.forEach((img) => {
+              if (!img.hasAttribute("alt")) {
+                issues.push({
+                  type: "missing_alt",
+                  severity: "serious",
+                  message: "Image missing alt text",
+                  recommendation: "Add descriptive alt text to image",
+                  element: img.outerHTML,
+                });
+              }
+            });
+
+            // Check for form labels
+            const formControls = Array.from(document.querySelectorAll("input, select, textarea"));
+            formControls.forEach((control) => {
+              const hasLabel = document.querySelector(`label[for="${control.id}"]`);
+              const hasAriaLabel = control.getAttribute("aria-label");
+              const hasAriaLabelledBy = control.getAttribute("aria-labelledby");
+
+              if (!hasLabel && !hasAriaLabel && !hasAriaLabelledBy) {
+                issues.push({
+                  type: "unlabeled_control",
+                  severity: "serious",
+                  message: "Form control without label",
+                  recommendation: "Add a label or aria-label to the form control",
+                  element: control.outerHTML,
+                });
+              }
+            });
+
+            return issues;
+          });
+
+          accessibilityData.structureIssues = structureChecks;
+          structureChecks.forEach((issue) => {
+            accessibilityData.summary[issue.severity]++;
+          });
+
+          // ARIA checks
+          if (checkAria) {
+            const ariaChecks = await page.evaluate(() => {
+              const issues = [];
+
+              // Check for invalid ARIA roles
+              const elementsWithRoles = Array.from(document.querySelectorAll("[role]"));
+              const validRoles = [
+                "alert",
+                "alertdialog",
+                "application",
+                "article",
+                "banner",
+                "button",
+                "cell",
+                "checkbox",
+                "columnheader",
+                "combobox",
+                "complementary",
+                "contentinfo",
+                "definition",
+                "dialog",
+                "directory",
+                "document",
+                "feed",
+                "figure",
+                "form",
+                "grid",
+                "gridcell",
+                "group",
+                "heading",
+                "img",
+                "link",
+                "list",
+                "listbox",
+                "listitem",
+                "log",
+                "main",
+                "marquee",
+                "math",
+                "menu",
+                "menubar",
+                "menuitem",
+                "menuitemcheckbox",
+                "menuitemradio",
+                "navigation",
+                "none",
+                "note",
+                "option",
+                "presentation",
+                "progressbar",
+                "radio",
+                "radiogroup",
+                "region",
+                "row",
+                "rowgroup",
+                "rowheader",
+                "scrollbar",
+                "search",
+                "searchbox",
+                "separator",
+                "slider",
+                "spinbutton",
+                "status",
+                "switch",
+                "tab",
+                "table",
+                "tablist",
+                "tabpanel",
+                "term",
+                "textbox",
+                "timer",
+                "toolbar",
+                "tooltip",
+                "tree",
+                "treegrid",
+                "treeitem",
+              ];
+
+              elementsWithRoles.forEach((element) => {
+                const role = element.getAttribute("role");
+                if (!validRoles.includes(role)) {
+                  issues.push({
+                    type: "invalid_role",
+                    severity: "serious",
+                    message: `Invalid ARIA role: ${role}`,
+                    recommendation: "Use a valid ARIA role",
+                    element: element.outerHTML,
+                  });
+                }
+              });
+
+              // Check for ARIA attributes using a more reliable method
+              const allElements = Array.from(document.getElementsByTagName("*"));
+              allElements.forEach((element) => {
+                const attributes = Array.from(element.attributes);
+                const ariaAttributes = attributes.filter((attr) => attr.name.startsWith("aria-"));
+
+                ariaAttributes.forEach((attr) => {
+                  // Check for empty ARIA attributes
+                  if (attr.value.trim() === "") {
+                    issues.push({
+                      type: "empty_aria",
+                      severity: "serious",
+                      message: `Empty ARIA attribute: ${attr.name}`,
+                      recommendation: "Provide a value for the ARIA attribute",
+                      element: element.outerHTML,
+                    });
+                  }
+
+                  // Check for invalid ARIA states
+                  if (["aria-checked", "aria-pressed", "aria-selected"].includes(attr.name)) {
+                    const validValues = ["true", "false", "mixed", "undefined"];
+                    if (!validValues.includes(attr.value)) {
+                      issues.push({
+                        type: "invalid_aria_state",
+                        severity: "serious",
+                        message: `Invalid value for ${attr.name}: ${attr.value}`,
+                        recommendation: `Use one of: ${validValues.join(", ")}`,
+                        element: element.outerHTML,
+                      });
+                    }
+                  }
+
+                  // Check for required complementary attributes
+                  if (attr.name === "aria-labelledby") {
+                    const referencedIds = attr.value.split(/\s+/);
+                    referencedIds.forEach((id) => {
+                      if (!document.getElementById(id)) {
+                        issues.push({
+                          type: "broken_aria_reference",
+                          severity: "serious",
+                          message: `aria-labelledby references non-existent ID: ${id}`,
+                          recommendation: "Ensure referenced IDs exist in the document",
+                          element: element.outerHTML,
+                        });
+                      }
+                    });
+                  }
+                });
+
+                // Check for required ARIA attributes
+                if (element.getAttribute("role") === "combobox") {
+                  if (!element.hasAttribute("aria-expanded")) {
+                    issues.push({
+                      type: "missing_required_aria",
+                      severity: "serious",
+                      message: "Combobox missing required aria-expanded attribute",
+                      recommendation: "Add aria-expanded attribute to combobox",
+                      element: element.outerHTML,
+                    });
+                  }
+                }
+              });
+
+              return issues;
+            });
+
+            accessibilityData.ariaIssues = ariaChecks;
+            ariaChecks.forEach((issue) => {
+              accessibilityData.summary[issue.severity]++;
+            });
+          }
+
+          // Contrast checks
+          if (checkContrast) {
+            const contrastChecks = await page.evaluate(() => {
+              function getContrastRatio(color1, color2) {
+                const luminance1 = getRelativeLuminance(color1);
+                const luminance2 = getRelativeLuminance(color2);
+                const brightest = Math.max(luminance1, luminance2);
+                const darkest = Math.min(luminance1, luminance2);
+                return (brightest + 0.05) / (darkest + 0.05);
+              }
+
+              function getRelativeLuminance(color) {
+                const rgb = color.match(/\d+/g).map(Number);
+                const [r, g, b] = rgb.map((c) => {
+                  c = c / 255;
+                  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+                });
+                return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+              }
+
+              const issues = [];
+              const elements = document.querySelectorAll("*");
+
+              elements.forEach((element) => {
+                const style = window.getComputedStyle(element);
+                const backgroundColor = style.backgroundColor;
+                const color = style.color;
+
+                if (backgroundColor !== "rgba(0, 0, 0, 0)" && color !== "rgba(0, 0, 0, 0)") {
+                  const ratio = getContrastRatio(backgroundColor, color);
+                  const fontSize = parseFloat(style.fontSize);
+                  const isBold = parseInt(style.fontWeight, 10) >= 700;
+
+                  const isLargeText = fontSize >= 18 || (fontSize >= 14 && isBold);
+                  const requiredRatio = isLargeText ? 3 : 4.5;
+
+                  if (ratio < requiredRatio) {
+                    issues.push({
+                      type: "insufficient_contrast",
+                      severity: "serious",
+                      message: `Contrast ratio ${ratio.toFixed(2)} is below the required ${requiredRatio}:1`,
+                      recommendation: "Increase the contrast between text and background colors",
+                      element: element.outerHTML,
+                      details: {
+                        backgroundColor,
+                        textColor: color,
+                        fontSize: `${fontSize}px`,
+                        isBold,
+                        actualRatio: ratio.toFixed(2),
+                      },
+                    });
+                  }
+                }
+              });
+
+              return issues;
+            });
+
+            accessibilityData.contrastIssues = contrastChecks;
+            contrastChecks.forEach((issue) => {
+              accessibilityData.summary[issue.severity]++;
+            });
+          }
+
+          // Format the accessibility report
+          const report = [
+            `# Accessibility Analysis for ${url}`,
+            `Generated at: ${accessibilityData.timestamp}`,
+            "",
+            "## Summary",
+            `- Critical Issues: ${accessibilityData.summary.critical}`,
+            `- Serious Issues: ${accessibilityData.summary.serious}`,
+            `- Moderate Issues: ${accessibilityData.summary.moderate}`,
+            `- Minor Issues: ${accessibilityData.summary.minor}`,
+            "",
+            "## Structure Issues",
+            accessibilityData.structureIssues.length > 0
+              ? accessibilityData.structureIssues.map((issue) => [`### ${issue.type} (${issue.severity.toUpperCase()})`, issue.message, `Recommendation: ${issue.recommendation}`, "```html", issue.element, "```"].join("\n")).join("\n\n")
+              : "No structure issues detected",
+            "",
+            checkAria
+              ? [
+                  "## ARIA Issues",
+                  accessibilityData.ariaIssues.length > 0
+                    ? accessibilityData.ariaIssues.map((issue) => [`### ${issue.type} (${issue.severity.toUpperCase()})`, issue.message, `Recommendation: ${issue.recommendation}`, "```html", issue.element, "```"].join("\n")).join("\n\n")
+                    : "No ARIA issues detected",
+                ].join("\n")
+              : "",
+            "",
+            checkContrast
+              ? [
+                  "## Contrast Issues",
+                  accessibilityData.contrastIssues.length > 0
+                    ? accessibilityData.contrastIssues
+                        .map((issue) =>
+                          [
+                            `### ${issue.type} (${issue.severity.toUpperCase()})`,
+                            issue.message,
+                            `Recommendation: ${issue.recommendation}`,
+                            "Details:",
+                            `- Background Color: ${issue.details.backgroundColor}`,
+                            `- Text Color: ${issue.details.textColor}`,
+                            `- Font Size: ${issue.details.fontSize}`,
+                            `- Bold: ${issue.details.isBold}`,
+                            `- Actual Ratio: ${issue.details.actualRatio}:1`,
+                            "```html",
+                            issue.element,
+                            "```",
+                          ].join("\n")
+                        )
+                        .join("\n\n")
+                    : "No contrast issues detected",
+                ].join("\n")
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Accessibility analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+          suggestedSettings: {
+            checkWcag: error.message.includes("wcag") ? false : checkWcag,
+            checkContrast: error.message.includes("contrast") ? false : checkContrast,
+            checkAria: error.message.includes("aria") ? false : checkAria,
+          },
+        };
+
+        logError("accessibility", "Accessibility analysis failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
+    } else if (name === "webtool_seo") {
+      const { url, checkMetaTags = true, validateStructuredData = true, checkMobileFriendly = true, analyzeContent = true } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "SEO analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use SEO analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const seoData = {
+          url,
+          timestamp: new Date().toISOString(),
+          metaTags: [],
+          structuredData: [],
+          mobileFriendly: true,
+          contentQuality: 0,
+        };
+
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setViewport({ width: 1280, height: 1024 });
+
+          await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: 30000,
+          });
+
+          // Collect meta tags
+          const metaTags = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll("meta")).map((meta) => ({
+              name: meta.name,
+              content: meta.content,
+            }));
+          });
+
+          seoData.metaTags = metaTags;
+
+          // Collect structured data
+          const structuredData = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll("[itemscope], [itemtype]")).map((element) => ({
+              type: element.getAttribute("itemtype") || element.getAttribute("itemscope"),
+              data: JSON.stringify(element.dataset),
+            }));
+          });
+
+          seoData.structuredData = structuredData;
+
+          // Check mobile friendliness
+          const isMobileFriendly = await page.evaluate(() => {
+            return window.innerWidth < 768;
+          });
+
+          seoData.mobileFriendly = isMobileFriendly;
+
+          // Analyze content quality
+          const contentQuality = await page.evaluate(() => {
+            const text = document.body.textContent;
+            const wordCount = text.split(/\s+/).length;
+            const readability = wordCount / 100;
+            return readability;
+          });
+
+          seoData.contentQuality = contentQuality;
+
+          // Format the SEO report
+          const report = [
+            `# SEO Analysis for ${url}`,
+            `Generated at: ${seoData.timestamp}`,
+            "",
+            "## Meta Tags",
+            seoData.metaTags.length > 0 ? seoData.metaTags.map((tag) => `- ${tag.name}: ${tag.content}`).join("\n") : "- No meta tags found",
+            "",
+            "## Structured Data",
+            seoData.structuredData.length > 0 ? seoData.structuredData.map((data) => `- ${data.type}: ${JSON.stringify(data.data)}`).join("\n") : "- No structured data found",
+            "",
+            "## Mobile Friendly",
+            seoData.mobileFriendly ? "Yes" : "No",
+            "",
+            "## Content Quality",
+            `- Readability Score: ${seoData.contentQuality.toFixed(2)}`,
+          ].join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "SEO analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+        };
+
+        logError("seo", "SEO analysis failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
     } else {
       return {
         content: [
