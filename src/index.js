@@ -581,6 +581,40 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["url"],
         },
       },
+      {
+        name: "webtool_assets",
+        description: "Analyze webpage assets for optimization opportunities",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            checkImages: {
+              type: "boolean",
+              description: "Check for image optimization opportunities",
+              default: true,
+            },
+            checkFonts: {
+              type: "boolean",
+              description: "Check for font optimization opportunities",
+              default: true,
+            },
+            checkCss: {
+              type: "boolean",
+              description: "Check for CSS optimization opportunities",
+              default: true,
+            },
+            checkJs: {
+              type: "boolean",
+              description: "Check for JavaScript optimization opportunities",
+              default: true,
+            },
+          },
+          required: ["url"],
+        },
+      },
     ],
   };
 });
@@ -2518,6 +2552,383 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           ],
         };
       }
+    } else if (name === "webtool_assets") {
+      const { url, checkImages = true, checkFonts = true, checkCss = true, checkJs = true } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Asset analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use asset analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const assetData = {
+          url,
+          timestamp: new Date().toISOString(),
+          summary: {
+            totalSize: 0,
+            totalRequests: 0,
+            potentialSavings: 0,
+          },
+          images: [],
+          fonts: [],
+          css: [],
+          javascript: [],
+          issues: [],
+        };
+
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setViewport({ width: 1280, height: 1024 });
+
+          // Enable request interception
+          await page.setRequestInterception(true);
+
+          // Track all resource requests
+          page.on("request", (request) => {
+            const resourceType = request.resourceType();
+            assetData.summary.totalRequests++;
+            request.continue();
+          });
+
+          // Analyze responses
+          page.on("response", async (response) => {
+            const request = response.request();
+            const resourceType = request.resourceType();
+            const url = request.url();
+            const headers = response.headers();
+            const size = parseInt(headers["content-length"]) || 0;
+            assetData.summary.totalSize += size;
+
+            try {
+              if (checkImages && resourceType === "image") {
+                const imageData = {
+                  url,
+                  size,
+                  type: headers["content-type"],
+                  dimensions: null,
+                  optimization: {
+                    compressed: headers["content-encoding"] === "gzip" || headers["content-encoding"] === "br",
+                    format: null,
+                    suggestions: [],
+                  },
+                };
+
+                // Check image format and suggest optimizations
+                if (headers["content-type"]) {
+                  if (headers["content-type"].includes("png")) {
+                    imageData.optimization.format = "PNG";
+                    if (size > 100 * 1024) {
+                      // 100KB
+                      imageData.optimization.suggestions.push("Consider converting to WebP for better compression");
+                    }
+                  } else if (headers["content-type"].includes("jpeg")) {
+                    imageData.optimization.format = "JPEG";
+                    if (size > 200 * 1024) {
+                      // 200KB
+                      imageData.optimization.suggestions.push("Consider using progressive JPEG");
+                      imageData.optimization.suggestions.push("Consider converting to WebP for better compression");
+                    }
+                  }
+                }
+
+                assetData.images.push(imageData);
+              }
+
+              if (checkFonts && resourceType === "font") {
+                const fontData = {
+                  url,
+                  size,
+                  format: headers["content-type"],
+                  optimization: {
+                    compressed: headers["content-encoding"] === "gzip" || headers["content-encoding"] === "br",
+                    suggestions: [],
+                  },
+                };
+
+                // Check font optimization opportunities
+                if (!fontData.optimization.compressed) {
+                  fontData.optimization.suggestions.push("Enable compression for font files");
+                }
+                if (headers["content-type"]?.includes("ttf")) {
+                  fontData.optimization.suggestions.push("Consider using WOFF2 format for better compression");
+                }
+
+                assetData.fonts.push(fontData);
+              }
+
+              if (checkCss && resourceType === "stylesheet") {
+                const cssData = {
+                  url,
+                  size,
+                  optimization: {
+                    compressed: headers["content-encoding"] === "gzip" || headers["content-encoding"] === "br",
+                    suggestions: [],
+                  },
+                };
+
+                // Analyze CSS content
+                const content = await response.text();
+                cssData.optimization.suggestions = analyzeCssOptimization(content);
+
+                assetData.css.push(cssData);
+              }
+
+              if (checkJs && resourceType === "script") {
+                const jsData = {
+                  url,
+                  size,
+                  optimization: {
+                    compressed: headers["content-encoding"] === "gzip" || headers["content-encoding"] === "br",
+                    suggestions: [],
+                  },
+                };
+
+                // Analyze JavaScript optimization opportunities
+                if (!jsData.optimization.compressed) {
+                  jsData.optimization.suggestions.push("Enable compression for JavaScript files");
+                }
+                if (size > 100 * 1024) {
+                  // 100KB
+                  jsData.optimization.suggestions.push("Consider code splitting for large JavaScript files");
+                }
+
+                assetData.javascript.push(jsData);
+              }
+            } catch (error) {
+              console.warn(`Error analyzing ${resourceType} asset:`, error.message);
+            }
+          });
+
+          // Navigate to the page
+          await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: 30000,
+          });
+
+          // Analyze image dimensions and loading
+          if (checkImages) {
+            const imageDimensions = await page.evaluate(() => {
+              return Array.from(document.images).map((img) => ({
+                src: img.src,
+                naturalWidth: img.naturalWidth,
+                naturalHeight: img.naturalHeight,
+                displayWidth: img.width,
+                displayHeight: img.height,
+                loading: img.loading || "eager",
+                hasSize: img.hasAttribute("width") && img.hasAttribute("height"),
+              }));
+            });
+
+            // Match dimensions with collected image data
+            assetData.images.forEach((image) => {
+              const dimensions = imageDimensions.find((dim) => dim.src === image.url);
+              if (dimensions) {
+                image.dimensions = dimensions;
+                if (dimensions.naturalWidth > dimensions.displayWidth * 2) {
+                  image.optimization.suggestions.push("Image is significantly larger than display size");
+                }
+                if (!dimensions.hasSize) {
+                  image.optimization.suggestions.push("Add width and height attributes to prevent layout shifts");
+                }
+                if (dimensions.loading === "eager" && !isAboveTheFold(dimensions)) {
+                  image.optimization.suggestions.push("Consider using loading='lazy' for images below the fold");
+                }
+              }
+            });
+          }
+
+          // Analyze unused CSS
+          if (checkCss) {
+            const unusedCss = await page.evaluate(() => {
+              const sheets = Array.from(document.styleSheets);
+              const unusedRules = [];
+
+              sheets.forEach((sheet) => {
+                try {
+                  const rules = Array.from(sheet.cssRules);
+                  rules.forEach((rule) => {
+                    if (rule.selectorText) {
+                      try {
+                        const elements = document.querySelectorAll(rule.selectorText);
+                        if (elements.length === 0) {
+                          unusedRules.push(rule.selectorText);
+                        }
+                      } catch (e) {
+                        // Invalid selector, ignore
+                      }
+                    }
+                  });
+                } catch (e) {
+                  // CORS or other error, ignore
+                }
+              });
+
+              return unusedRules;
+            });
+
+            if (unusedCss.length > 0) {
+              assetData.css.forEach((css) => {
+                css.optimization.suggestions.push(`Found ${unusedCss.length} potentially unused CSS selectors`);
+              });
+            }
+          }
+
+          // Calculate potential savings
+          let potentialSavings = 0;
+          assetData.images.forEach((image) => {
+            if (image.optimization.suggestions.length > 0) {
+              potentialSavings += image.size * 0.3; // Estimate 30% savings for images
+            }
+          });
+          assetData.css.forEach((css) => {
+            if (css.optimization.suggestions.length > 0) {
+              potentialSavings += css.size * 0.2; // Estimate 20% savings for CSS
+            }
+          });
+          assetData.javascript.forEach((js) => {
+            if (js.optimization.suggestions.length > 0) {
+              potentialSavings += js.size * 0.25; // Estimate 25% savings for JS
+            }
+          });
+          assetData.summary.potentialSavings = potentialSavings;
+
+          // Format the asset optimization report
+          const report = [
+            `# Asset Optimization Report for ${url}`,
+            `Generated at: ${assetData.timestamp}`,
+            "",
+            "## Summary",
+            `- Total Requests: ${assetData.summary.totalRequests}`,
+            `- Total Size: ${formatBytes(assetData.summary.totalSize)}`,
+            `- Potential Savings: ${formatBytes(assetData.summary.potentialSavings)}`,
+            "",
+            "## Images",
+            assetData.images.length > 0
+              ? assetData.images
+                  .map((image) =>
+                    [
+                      `### ${new URL(image.url).pathname.split("/").pop()}`,
+                      `- Size: ${formatBytes(image.size)}`,
+                      `- Type: ${image.type}`,
+                      image.dimensions
+                        ? [
+                            `- Dimensions: ${image.dimensions.naturalWidth}x${image.dimensions.naturalHeight}`,
+                            `- Display Size: ${image.dimensions.displayWidth}x${image.dimensions.displayHeight}`,
+                            `- Loading: ${image.dimensions.loading}`,
+                          ].join("\n")
+                        : "",
+                      "#### Optimization Suggestions",
+                      image.optimization.suggestions.length > 0 ? image.optimization.suggestions.map((s) => `- ${s}`).join("\n") : "- No optimization suggestions",
+                    ].join("\n")
+                  )
+                  .join("\n\n")
+              : "No images found",
+            "",
+            "## Fonts",
+            assetData.fonts.length > 0
+              ? assetData.fonts
+                  .map((font) =>
+                    [
+                      `### ${new URL(font.url).pathname.split("/").pop()}`,
+                      `- Size: ${formatBytes(font.size)}`,
+                      `- Format: ${font.format}`,
+                      "#### Optimization Suggestions",
+                      font.optimization.suggestions.length > 0 ? font.optimization.suggestions.map((s) => `- ${s}`).join("\n") : "- No optimization suggestions",
+                    ].join("\n")
+                  )
+                  .join("\n\n")
+              : "No fonts found",
+            "",
+            "## CSS",
+            assetData.css.length > 0
+              ? assetData.css
+                  .map((css) =>
+                    [
+                      `### ${new URL(css.url).pathname.split("/").pop()}`,
+                      `- Size: ${formatBytes(css.size)}`,
+                      `- Compressed: ${css.optimization.compressed ? "Yes" : "No"}`,
+                      "#### Optimization Suggestions",
+                      css.optimization.suggestions.length > 0 ? css.optimization.suggestions.map((s) => `- ${s}`).join("\n") : "- No optimization suggestions",
+                    ].join("\n")
+                  )
+                  .join("\n\n")
+              : "No CSS files found",
+            "",
+            "## JavaScript",
+            assetData.javascript.length > 0
+              ? assetData.javascript
+                  .map((js) =>
+                    [
+                      `### ${new URL(js.url).pathname.split("/").pop()}`,
+                      `- Size: ${formatBytes(js.size)}`,
+                      `- Compressed: ${js.optimization.compressed ? "Yes" : "No"}`,
+                      "#### Optimization Suggestions",
+                      js.optimization.suggestions.length > 0 ? js.optimization.suggestions.map((s) => `- ${s}`).join("\n") : "- No optimization suggestions",
+                    ].join("\n")
+                  )
+                  .join("\n\n")
+              : "No JavaScript files found",
+          ].join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Asset analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+          suggestedSettings: {
+            checkImages: error.message.includes("images") ? false : checkImages,
+            checkFonts: error.message.includes("fonts") ? false : checkFonts,
+            checkCss: error.message.includes("css") ? false : checkCss,
+            checkJs: error.message.includes("javascript") ? false : checkJs,
+          },
+        };
+
+        logError("assets", "Asset analysis failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
     } else {
       return {
         content: [
@@ -2593,3 +3004,42 @@ main().catch((error) => {
   logError("server", "Fatal error in main()", error);
   process.exit(1);
 });
+
+// Helper function to analyze CSS optimization opportunities
+function analyzeCssOptimization(content) {
+  const suggestions = [];
+
+  // Check for potential optimization opportunities
+  if (content.includes("!important")) {
+    suggestions.push("Reduce use of !important declarations");
+  }
+
+  if ((content.match(/@import/g) || []).length > 2) {
+    suggestions.push("Reduce use of @import rules");
+  }
+
+  if (content.length > 50000) {
+    // 50KB
+    suggestions.push("Consider splitting large CSS files");
+  }
+
+  if (!content.includes("@media")) {
+    suggestions.push("Consider using media queries for responsive design");
+  }
+
+  return suggestions;
+}
+
+// Helper function to check if an image is likely above the fold
+function isAboveTheFold(dimensions) {
+  return dimensions.displayHeight < 1000; // Assume 1000px as fold threshold
+}
+
+// Helper function to format bytes
+function formatBytes(bytes) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
