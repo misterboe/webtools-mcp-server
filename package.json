@@ -1,10 +1,10 @@
 {
   "name": "@bschauer/webtools-mcp-server",
-  "version": "1.0.0",
-  "description": "MCP server for web tools",
+  "version": "1.1.0",
+  "description": "MCP server for web tools including screenshot capabilities",
   "main": "src/index.js",
   "bin": {
-    "webtools-mcp-server": "./src/index.js"
+    "webtools-mcp-server": "src/index.js"
   },
   "type": "module",
   "scripts": {
@@ -16,7 +16,11 @@
     "web",
     "scraping",
     "markdown",
-    "html"
+    "html",
+    "screenshot",
+    "puppeteer",
+    "device-emulation",
+    "web-capture"
   ],
   "author": "bschauer",
   "license": "MIT",

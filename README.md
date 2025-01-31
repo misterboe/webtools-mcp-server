@@ -1,16 +1,18 @@
 # Webtools MCP Server
 
-A Model Context Protocol (MCP) server that provides web scraping and content extraction tools. This server can be used with any MCP-compatible client to fetch and process web content.
+A Model Context Protocol (MCP) server that provides web scraping, content extraction, and screenshot tools. This server can be used with any MCP-compatible client to fetch, process, and capture web content.
 
 ## Features
 
 - `webtool_gethtml`: Get raw HTML content from any webpage
 - `webtool_readpage`: Convert webpage content to clean, formatted Markdown
+- `webtool_screenshot`: Take screenshots of webpages with custom device emulation
 - Automatic retry mechanism with exponential backoff
 - Optional proxy support
 - JavaScript rendering support (via Puppeteer)
 - Intelligent HTML cleaning and formatting
 - Markdown conversion with image and link preservation
+- Flexible device emulation for screenshots
 
 ## Installation
 
@@ -21,10 +23,7 @@ You can run this server directly using `npx`:
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@bschauer/webtools-mcp-server"
-      ]
+      "args": ["-y", "@bschauer/webtools-mcp-server"]
     }
   }
 }
@@ -51,6 +50,7 @@ The server supports the following environment variables:
 Gets the raw HTML content of a webpage.
 
 Parameters:
+
 - `url` (required): The URL of the webpage to fetch
 - `useJavaScript` (optional): Whether to execute JavaScript (requires Puppeteer)
 - `useProxy` (optional): Whether to use a proxy for this request
@@ -60,15 +60,77 @@ Parameters:
 Gets the webpage content in Markdown format.
 
 Parameters:
+
 - `url` (required): The URL of the webpage to fetch
 - `useJavaScript` (optional): Whether to execute JavaScript (requires Puppeteer)
 - `useProxy` (optional): Whether to use a proxy for this request
 - `selector` (optional): CSS selector to extract specific content (default: "body")
 
+### webtool_screenshot
+
+Takes screenshots of webpages with custom device emulation support.
+
+Parameters:
+
+- `url` (required): The URL of the webpage to screenshot
+- `selector` (optional): CSS selector to screenshot a specific element
+- `useProxy` (optional): Whether to use a proxy for this request
+- `deviceConfig` (optional): Custom device configuration for emulation
+  - `name`: Device name for identification
+  - `userAgent`: Custom user agent string
+  - `width`: Viewport width
+  - `height`: Viewport height
+  - `deviceScaleFactor`: Device scale factor for high DPI displays (default: 1)
+  - `isMobile`: Whether to emulate a mobile device (default: false)
+  - `hasTouch`: Whether the device has touch capabilities (default: false)
+  - `isLandscape`: Whether to use landscape orientation (default: false)
+
+Example screenshot configurations:
+
+```json
+// Mobile device screenshot
+{
+  "url": "https://example.com",
+  "deviceConfig": {
+    "name": "Custom Mobile",
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 3,
+    "isMobile": true,
+    "hasTouch": true,
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15"
+  }
+}
+
+// Tablet in landscape mode
+{
+  "url": "https://example.com",
+  "deviceConfig": {
+    "name": "Custom Tablet",
+    "width": 1024,
+    "height": 768,
+    "deviceScaleFactor": 2,
+    "isMobile": true,
+    "hasTouch": true,
+    "isLandscape": true
+  }
+}
+
+// Specific element screenshot
+{
+  "url": "https://example.com",
+  "selector": ".main-content",
+  "deviceConfig": {
+    "width": 1920,
+    "height": 1080
+  }
+}
+```
+
 ## Optional Dependencies
 
-- `puppeteer`: Required for JavaScript rendering support. Will be automatically installed if needed.
+- `puppeteer`: Required for JavaScript rendering and screenshot support. Will be automatically installed if needed.
 
 ## License
 
-MIT 
+MIT

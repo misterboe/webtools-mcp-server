@@ -306,6 +306,71 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["url"],
         },
       },
+      {
+        name: "webtool_screenshot",
+        description: "Take a screenshot of a webpage or specific element on the page with custom device emulation",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to screenshot",
+            },
+            selector: {
+              type: "string",
+              description: "Optional CSS selector to screenshot a specific element",
+            },
+            useProxy: {
+              type: "boolean",
+              description: "Whether to use a proxy for this request",
+              default: false,
+            },
+            deviceConfig: {
+              type: "object",
+              description: "Custom device configuration for emulation",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "Device name for identification",
+                },
+                userAgent: {
+                  type: "string",
+                  description: "Custom user agent string",
+                },
+                width: {
+                  type: "number",
+                  description: "Viewport width",
+                },
+                height: {
+                  type: "number",
+                  description: "Viewport height",
+                },
+                deviceScaleFactor: {
+                  type: "number",
+                  description: "Device scale factor for high DPI displays",
+                  default: 1,
+                },
+                isMobile: {
+                  type: "boolean",
+                  description: "Whether to emulate a mobile device",
+                  default: false,
+                },
+                hasTouch: {
+                  type: "boolean",
+                  description: "Whether the device has touch capabilities",
+                  default: false,
+                },
+                isLandscape: {
+                  type: "boolean",
+                  description: "Whether to use landscape orientation",
+                  default: false,
+                },
+              },
+            },
+          },
+          required: ["url"],
+        },
+      },
     ],
   };
 });
@@ -510,6 +575,131 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 null,
                 2
               ),
+            },
+          ],
+        };
+      }
+    } else if (name === "webtool_screenshot") {
+      const { url, selector, useProxy = false, deviceConfig } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Screenshot functionality not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use screenshot functionality",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", useProxy && PROXY_CONFIG.url ? `--proxy-server=${PROXY_CONFIG.url}` : "", "--ignore-certificate-errors"].filter(Boolean),
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setExtraHTTPHeaders(BROWSER_HEADERS);
+
+          if (deviceConfig) {
+            // Set viewport with device configuration
+            await page.setViewport({
+              width: deviceConfig.width || 1280,
+              height: deviceConfig.height || 800,
+              deviceScaleFactor: deviceConfig.deviceScaleFactor || 1,
+              isMobile: deviceConfig.isMobile || false,
+              hasTouch: deviceConfig.hasTouch || false,
+              isLandscape: deviceConfig.isLandscape || false,
+            });
+
+            // Set custom user agent if provided
+            if (deviceConfig.userAgent) {
+              await page.setUserAgent(deviceConfig.userAgent);
+            }
+          } else {
+            // Default desktop viewport
+            await page.setViewport({
+              width: 1280,
+              height: 800,
+              deviceScaleFactor: 1,
+              isMobile: false,
+              hasTouch: false,
+              isLandscape: false,
+            });
+          }
+
+          await page.setDefaultNavigationTimeout(45000);
+
+          // Navigate and wait for network to be idle
+          await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: 45000,
+          });
+
+          let screenshotBuffer;
+          if (selector) {
+            const element = await page.waitForSelector(selector, {
+              timeout: 10000,
+              visible: true,
+            });
+            if (!element) {
+              throw new Error(`Element with selector "${selector}" not found`);
+            }
+            screenshotBuffer = await element.screenshot({
+              type: "png",
+            });
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            screenshotBuffer = await page.screenshot({
+              type: "png",
+              fullPage: true,
+            });
+          }
+
+          const base64Data = screenshotBuffer.toString("base64");
+
+          return {
+            content: [
+              {
+                type: "image",
+                data: base64Data,
+                mimeType: "image/png",
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Screenshot failed",
+          details: error.message,
+          recommendation: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? "Proxy connection failed. Please try without proxy" : "Please try again with different settings",
+          retryable: true,
+          url: url,
+          useProxy: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? false : !useProxy,
+          errorType: error.name,
+        };
+
+        logError("screenshot", "Screenshot capture failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
             },
           ],
         };
