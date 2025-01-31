@@ -371,6 +371,216 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["url"],
         },
       },
+      {
+        name: "webtool_debug",
+        description: "Debug a webpage by capturing console output, network requests, and errors",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to debug",
+            },
+            captureConsole: {
+              type: "boolean",
+              description: "Capture console.log, warn, error output",
+              default: true,
+            },
+            captureNetwork: {
+              type: "boolean",
+              description: "Capture network requests and responses",
+              default: true,
+            },
+            captureErrors: {
+              type: "boolean",
+              description: "Capture JavaScript errors and exceptions",
+              default: true,
+            },
+            timeoutMs: {
+              type: "number",
+              description: "How long to collect debug information in milliseconds",
+              default: 10000,
+            },
+            useProxy: {
+              type: "boolean",
+              description: "Whether to use a proxy for this request",
+              default: false,
+            },
+          },
+          required: ["url"],
+        },
+      },
+      {
+        name: "webtool_performance",
+        description: "Analyze webpage performance including Core Web Vitals, resource loading, and performance timeline",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            timeoutMs: {
+              type: "number",
+              description: "How long to collect performance data in milliseconds",
+              default: 15000,
+            },
+            includeCoreWebVitals: {
+              type: "boolean",
+              description: "Include Core Web Vitals measurements",
+              default: true,
+            },
+            includeResourceTiming: {
+              type: "boolean",
+              description: "Include detailed resource timing information",
+              default: true,
+            },
+            includeMemoryProfile: {
+              type: "boolean",
+              description: "Include memory usage profiling",
+              default: false,
+            },
+          },
+          required: ["url"],
+        },
+      },
+      {
+        name: "webtool_network",
+        description: "Detailed network analysis including requests, WebSocket, DNS, and caching",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            timeoutMs: {
+              type: "number",
+              description: "How long to collect network data in milliseconds",
+              default: 10000,
+            },
+            includeHeaders: {
+              type: "boolean",
+              description: "Include detailed header information",
+              default: true,
+            },
+            trackWebSockets: {
+              type: "boolean",
+              description: "Monitor WebSocket connections",
+              default: false,
+            },
+            analyzeCaching: {
+              type: "boolean",
+              description: "Analyze cache headers and policies",
+              default: true,
+            },
+          },
+          required: ["url"],
+        },
+      },
+      {
+        name: "webtool_security",
+        description: "Security analysis including headers, dependencies, and configuration",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            checkHeaders: {
+              type: "boolean",
+              description: "Analyze security headers",
+              default: true,
+            },
+            checkDependencies: {
+              type: "boolean",
+              description: "Check for known vulnerabilities in dependencies",
+              default: true,
+            },
+            checkCsp: {
+              type: "boolean",
+              description: "Validate Content Security Policy",
+              default: true,
+            },
+            checkCertificate: {
+              type: "boolean",
+              description: "Analyze SSL/TLS configuration",
+              default: true,
+            },
+          },
+          required: ["url"],
+        },
+      },
+      {
+        name: "webtool_accessibility",
+        description: "Analyze webpage accessibility including WCAG compliance and screen reader compatibility",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            checkWcag: {
+              type: "boolean",
+              description: "Check WCAG 2.1 compliance",
+              default: true,
+            },
+            level: {
+              type: "string",
+              description: "WCAG compliance level to check",
+              enum: ["A", "AA", "AAA"],
+              default: "AA",
+            },
+            checkContrast: {
+              type: "boolean",
+              description: "Check color contrast ratios",
+              default: true,
+            },
+            checkAria: {
+              type: "boolean",
+              description: "Validate ARIA attributes",
+              default: true,
+            },
+          },
+          required: ["url"],
+        },
+      },
+      {
+        name: "webtool_seo",
+        description: "Analyze SEO aspects including meta tags, structured data, and mobile friendliness",
+        inputSchema: {
+          type: "object",
+          properties: {
+            url: {
+              type: "string",
+              description: "The URL of the webpage to analyze",
+            },
+            checkMetaTags: {
+              type: "boolean",
+              description: "Analyze meta tags",
+              default: true,
+            },
+            validateStructuredData: {
+              type: "boolean",
+              description: "Validate structured data markup",
+              default: true,
+            },
+            checkMobileFriendly: {
+              type: "boolean",
+              description: "Check mobile friendliness",
+              default: true,
+            },
+            analyzeContent: {
+              type: "boolean",
+              description: "Analyze content quality and relevance",
+              default: true,
+            },
+          },
+          required: ["url"],
+        },
+      },
     ],
   };
 });
@@ -694,6 +904,699 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         logError("screenshot", "Screenshot capture failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
+    } else if (name === "webtool_debug") {
+      const { url, captureConsole = true, captureNetwork = true, captureErrors = true, timeoutMs = 10000, useProxy = false } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Debug functionality not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use debug functionality",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const debugData = {
+          url,
+          timestamp: new Date().toISOString(),
+          console: [],
+          network: [],
+          errors: [],
+          performance: null,
+        };
+
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", useProxy && PROXY_CONFIG.url ? `--proxy-server=${PROXY_CONFIG.url}` : "", "--ignore-certificate-errors"].filter(Boolean),
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setExtraHTTPHeaders(BROWSER_HEADERS);
+
+          // Capture console output
+          if (captureConsole) {
+            page.on("console", (msg) => {
+              debugData.console.push({
+                type: msg.type(),
+                text: msg.text(),
+                timestamp: new Date().toISOString(),
+                location: msg.location(),
+              });
+            });
+          }
+
+          // Capture network requests
+          if (captureNetwork) {
+            await page.setRequestInterception(true);
+            page.on("request", (request) => {
+              debugData.network.push({
+                type: "request",
+                url: request.url(),
+                method: request.method(),
+                headers: request.headers(),
+                timestamp: new Date().toISOString(),
+                resourceType: request.resourceType(),
+              });
+              request.continue();
+            });
+
+            page.on("response", (response) => {
+              debugData.network.push({
+                type: "response",
+                url: response.url(),
+                status: response.status(),
+                headers: response.headers(),
+                timestamp: new Date().toISOString(),
+              });
+            });
+          }
+
+          // Capture JavaScript errors
+          if (captureErrors) {
+            page.on("pageerror", (error) => {
+              debugData.errors.push({
+                type: "javascript",
+                message: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+              });
+            });
+
+            page.on("error", (error) => {
+              debugData.errors.push({
+                type: "page",
+                message: error.message,
+                timestamp: new Date().toISOString(),
+              });
+            });
+          }
+
+          // Start performance monitoring
+          await page.evaluate(() => {
+            try {
+              // Clear any existing marks first
+              performance.clearMarks();
+              performance.clearMeasures();
+              performance.mark("debug-start");
+            } catch (e) {
+              console.warn("Performance API not fully supported:", e.message);
+            }
+          });
+
+          // Navigate to the page
+          await page.goto(url, {
+            waitUntil: "networkidle0",
+            timeout: timeoutMs,
+          });
+
+          // Wait for specified timeout
+          await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+
+          // Collect performance metrics
+          debugData.performance = await page.evaluate(() => {
+            try {
+              performance.mark("debug-end");
+              performance.measure("debug-duration", "debug-start", "debug-end");
+            } catch (e) {
+              console.warn("Performance measurement failed:", e.message);
+            }
+
+            try {
+              const navigationTiming = performance.getEntriesByType("navigation")[0] || {};
+              const resourceTiming = performance.getEntriesByType("resource") || [];
+              const measures = performance.getEntriesByType("measure") || [];
+
+              return {
+                navigation: {
+                  domComplete: navigationTiming.domComplete || 0,
+                  loadEventEnd: navigationTiming.loadEventEnd || 0,
+                  domInteractive: navigationTiming.domInteractive || 0,
+                  domContentLoadedEventEnd: navigationTiming.domContentLoadedEventEnd || 0,
+                },
+                resources: resourceTiming.map((r) => ({
+                  name: r.name,
+                  duration: r.duration,
+                  transferSize: r.transferSize,
+                  type: r.initiatorType,
+                })),
+                measures: measures.map((m) => ({
+                  name: m.name,
+                  duration: m.duration,
+                })),
+              };
+            } catch (e) {
+              return {
+                error: e.message,
+                navigation: {
+                  domComplete: 0,
+                  loadEventEnd: 0,
+                  domInteractive: 0,
+                  domContentLoadedEventEnd: 0,
+                },
+                resources: [],
+                measures: [],
+              };
+            }
+          });
+
+          // Format the debug data into a readable markdown report
+          const report = [
+            `# Debug Report for ${url}`,
+            `Generated at: ${debugData.timestamp}`,
+            "",
+            "## Console Output",
+            debugData.console.length > 0 ? debugData.console.map((log) => `- [${log.timestamp}] ${log.type.toUpperCase()}: ${log.text}`).join("\n") : "- No console output captured",
+            "",
+            "## Network Activity",
+            debugData.network.length > 0 ? debugData.network.map((n) => `- [${n.timestamp}] ${n.type.toUpperCase()} ${n.method || n.status} ${n.url}`).join("\n") : "- No network activity captured",
+            "",
+            "## Errors",
+            debugData.errors.length > 0 ? debugData.errors.map((err) => `### ${err.type} Error at ${err.timestamp}\n\`\`\`\n${err.message}\n${err.stack || ""}\n\`\`\``).join("\n") : "- No errors captured",
+            "",
+            "## Performance Metrics",
+            debugData.performance.error
+              ? `Error collecting performance metrics: ${debugData.performance.error}`
+              : [
+                  "### Navigation Timing",
+                  `- DOM Complete: ${debugData.performance.navigation.domComplete}ms`,
+                  `- Load Event: ${debugData.performance.navigation.loadEventEnd}ms`,
+                  `- DOM Interactive: ${debugData.performance.navigation.domInteractive}ms`,
+                  "",
+                  "### Resource Loading",
+                  debugData.performance.resources.length > 0 ? debugData.performance.resources.map((r) => `- ${r.name}: ${r.duration}ms (${(r.transferSize / 1024).toFixed(2)}KB)`).join("\n") : "- No resource timing data available",
+                ].join("\n"),
+          ].join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Debug failed",
+          details: error.message,
+          recommendation: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED")
+            ? "Proxy connection failed. Please try without proxy"
+            : error.message.includes("net::ERR_CONNECTION_REFUSED")
+            ? "Connection refused. The site might be blocking automated access"
+            : error.message.includes("net::ERR_NAME_NOT_RESOLVED")
+            ? "Could not resolve the domain name. Please check the URL"
+            : "Please try again with different settings",
+          retryable: true,
+          url: url,
+          useProxy: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? false : useProxy,
+          suggestedSettings: {
+            timeoutMs: error.message.includes("TimeoutError") ? timeoutMs * 2 : timeoutMs,
+            useJavaScript: error.message.includes("JavaScript") || error.message.includes("not defined"),
+            captureNetwork: error.message.includes("request interception") ? false : captureNetwork,
+          },
+          errorType: error.name,
+          errorCategory: error.message.includes("net::") ? "network" : error.message.includes("timeout") ? "timeout" : error.message.includes("JavaScript") ? "javascript" : "unknown",
+        };
+
+        logError("debug", "Debug capture failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
+    } else if (name === "webtool_performance") {
+      const { url, timeoutMs = 15000, includeCoreWebVitals = true, includeResourceTiming = true, includeMemoryProfile = false } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Performance analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use performance analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setDefaultNavigationTimeout(timeoutMs);
+
+          // Enable CDP Session for performance metrics
+          const client = await page.target().createCDPSession();
+          await client.send("Performance.enable");
+
+          // Start collecting performance metrics
+          const performanceMetrics = {
+            coreWebVitals: null,
+            resourceTiming: [],
+            memoryProfile: null,
+            metrics: {},
+            timestamps: {
+              start: Date.now(),
+            },
+          };
+
+          // Setup performance observers
+          await page.evaluateOnNewDocument(() => {
+            window.performanceData = {
+              lcpTime: 0,
+              fidTime: 0,
+              clsValue: 0,
+              resources: [],
+            };
+
+            // LCP Observer
+            new PerformanceObserver((list) => {
+              const entries = list.getEntries();
+              const lastEntry = entries[entries.length - 1];
+              window.performanceData.lcpTime = lastEntry.startTime;
+            }).observe({ entryTypes: ["largest-contentful-paint"] });
+
+            // FID Observer
+            new PerformanceObserver((list) => {
+              const entries = list.getEntries();
+              entries.forEach((entry) => {
+                if (entry.name === "first-input") {
+                  window.performanceData.fidTime = entry.processingStart - entry.startTime;
+                }
+              });
+            }).observe({ entryTypes: ["first-input"] });
+
+            // CLS Observer
+            let clsValue = 0;
+            new PerformanceObserver((list) => {
+              const entries = list.getEntries();
+              entries.forEach((entry) => {
+                if (!entry.hadRecentInput) {
+                  clsValue += entry.value;
+                  window.performanceData.clsValue = clsValue;
+                }
+              });
+            }).observe({ entryTypes: ["layout-shift"] });
+
+            // Resource Timing
+            new PerformanceObserver((list) => {
+              const entries = list.getEntries();
+              window.performanceData.resources = window.performanceData.resources.concat(
+                entries.map((entry) => ({
+                  name: entry.name,
+                  type: entry.initiatorType,
+                  duration: entry.duration,
+                  transferSize: entry.transferSize,
+                  startTime: entry.startTime,
+                }))
+              );
+            }).observe({ entryTypes: ["resource"] });
+          });
+
+          // Navigate to page
+          await page.goto(url, {
+            waitUntil: ["load", "networkidle0"],
+            timeout: timeoutMs,
+          });
+
+          // Collect metrics after page load
+          if (includeCoreWebVitals) {
+            performanceMetrics.coreWebVitals = await page.evaluate(() => ({
+              LCP: window.performanceData.lcpTime,
+              FID: window.performanceData.fidTime,
+              CLS: window.performanceData.clsValue,
+            }));
+          }
+
+          if (includeResourceTiming) {
+            performanceMetrics.resourceTiming = await page.evaluate(() => window.performanceData.resources);
+          }
+
+          if (includeMemoryProfile) {
+            performanceMetrics.memoryProfile = await page.evaluate(() =>
+              performance.memory
+                ? {
+                    usedJSHeapSize: performance.memory.usedJSHeapSize,
+                    totalJSHeapSize: performance.memory.totalJSHeapSize,
+                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+                  }
+                : null
+            );
+          }
+
+          // Collect general metrics
+          const metrics = await client.send("Performance.getMetrics");
+          performanceMetrics.metrics = metrics.metrics.reduce((acc, metric) => {
+            acc[metric.name] = metric.value;
+            return acc;
+          }, {});
+
+          performanceMetrics.timestamps.end = Date.now();
+
+          // Format the performance report
+          const report = [
+            `# Performance Analysis for ${url}`,
+            `Duration: ${performanceMetrics.timestamps.end - performanceMetrics.timestamps.start}ms`,
+            "",
+            "## Core Web Vitals",
+            performanceMetrics.coreWebVitals
+              ? [
+                  `- Largest Contentful Paint (LCP): ${(performanceMetrics.coreWebVitals.LCP / 1000).toFixed(2)}s`,
+                  `- First Input Delay (FID): ${performanceMetrics.coreWebVitals.FID.toFixed(2)}ms`,
+                  `- Cumulative Layout Shift (CLS): ${performanceMetrics.coreWebVitals.CLS.toFixed(3)}`,
+                ].join("\n")
+              : "- Core Web Vitals data not collected",
+            "",
+            "## Resource Loading",
+            performanceMetrics.resourceTiming.length > 0
+              ? [
+                  "### Summary",
+                  `- Total Resources: ${performanceMetrics.resourceTiming.length}`,
+                  `- Total Transfer Size: ${(performanceMetrics.resourceTiming.reduce((sum, r) => sum + (r.transferSize || 0), 0) / 1024 / 1024).toFixed(2)}MB`,
+                  "",
+                  "### Details",
+                  ...performanceMetrics.resourceTiming.map((r) => `- ${r.name.substring(0, 100)}${r.name.length > 100 ? "..." : ""}\n  ${r.type} | ${r.duration.toFixed(0)}ms | ${(r.transferSize / 1024).toFixed(1)}KB`),
+                ].join("\n")
+              : "- Resource timing data not collected",
+            "",
+            "## Memory Usage",
+            performanceMetrics.memoryProfile
+              ? [
+                  `- Used JS Heap: ${(performanceMetrics.memoryProfile.usedJSHeapSize / 1024 / 1024).toFixed(1)}MB`,
+                  `- Total JS Heap: ${(performanceMetrics.memoryProfile.totalJSHeapSize / 1024 / 1024).toFixed(1)}MB`,
+                  `- JS Heap Limit: ${(performanceMetrics.memoryProfile.jsHeapSizeLimit / 1024 / 1024).toFixed(1)}MB`,
+                ].join("\n")
+              : "- Memory profile not collected",
+            "",
+            "## Performance Metrics",
+            Object.entries(performanceMetrics.metrics)
+              .filter(([key]) => key.includes("Duration") || key.includes("Timestamp"))
+              .map(([key, value]) => `- ${key}: ${value.toFixed(2)}ms`)
+              .join("\n"),
+          ].join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Performance analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+        };
+
+        logError("performance", "Performance analysis failed", error, errorDetails);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(errorDetails, null, 2),
+            },
+          ],
+        };
+      }
+    } else if (name === "webtool_network") {
+      const { url, timeoutMs = 10000, includeHeaders = true, trackWebSockets = false, analyzeCaching = true } = args;
+
+      if (!puppeteer) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "Network analysis not available",
+                  details: "Puppeteer is not installed",
+                  recommendation: "Please install Puppeteer to use network analysis",
+                  retryable: false,
+                  url: url,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      try {
+        const browser = await puppeteer.launch({
+          headless: "new",
+          args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setDefaultNavigationTimeout(timeoutMs);
+
+          // Enable CDP Session for network monitoring
+          const client = await page.target().createCDPSession();
+          await client.send("Network.enable");
+
+          // Initialize network data collection
+          const networkData = {
+            requests: [],
+            websockets: [],
+            timing: {},
+            summary: {
+              totalRequests: 0,
+              byMethod: {},
+              byType: {},
+              byProtocol: {},
+              totalBytes: 0,
+              compression: {
+                originalSize: 0,
+                transferredSize: 0,
+              },
+            },
+            caching: {
+              cacheable: 0,
+              notCacheable: 0,
+              cached: 0,
+            },
+          };
+
+          // Setup network request monitoring
+          await page.setRequestInterception(true);
+
+          page.on("request", (request) => {
+            const requestData = {
+              url: request.url(),
+              method: request.method(),
+              resourceType: request.resourceType(),
+              headers: includeHeaders ? request.headers() : undefined,
+              timestamp: Date.now(),
+            };
+
+            networkData.requests.push(requestData);
+            networkData.summary.totalRequests++;
+            networkData.summary.byMethod[request.method()] = (networkData.summary.byMethod[request.method()] || 0) + 1;
+            networkData.summary.byType[request.resourceType()] = (networkData.summary.byType[request.resourceType()] || 0) + 1;
+
+            request.continue();
+          });
+
+          page.on("response", async (response) => {
+            try {
+              const request = response.request();
+              const headers = response.headers();
+              const size = headers["content-length"] ? parseInt(headers["content-length"], 10) : 0;
+
+              networkData.summary.totalBytes += size;
+
+              // Analyze caching if enabled
+              if (analyzeCaching) {
+                const cacheControl = headers["cache-control"];
+                const pragma = headers["pragma"];
+
+                if (cacheControl || pragma) {
+                  if (cacheControl?.includes("no-store") || pragma === "no-cache") {
+                    networkData.caching.notCacheable++;
+                  } else {
+                    networkData.caching.cacheable++;
+                  }
+                }
+
+                if (response.fromCache()) {
+                  networkData.caching.cached++;
+                }
+              }
+
+              // Track compression
+              if (headers["content-encoding"]) {
+                const originalSize = size;
+                const transferredSize = (await response.buffer()).length;
+                networkData.summary.compression.originalSize += originalSize;
+                networkData.summary.compression.transferredSize += transferredSize;
+              }
+
+              // Track protocol
+              const protocol = response.protocol() || "unknown";
+              networkData.summary.byProtocol[protocol] = (networkData.summary.byProtocol[protocol] || 0) + 1;
+            } catch (e) {
+              console.warn("Error processing response:", e.message);
+            }
+          });
+
+          // Track WebSocket connections if enabled
+          if (trackWebSockets) {
+            client.on("Network.webSocketCreated", ({ requestId, url }) => {
+              networkData.websockets.push({
+                id: requestId,
+                url,
+                status: "created",
+                timestamp: Date.now(),
+              });
+            });
+
+            client.on("Network.webSocketClosed", ({ requestId }) => {
+              const ws = networkData.websockets.find((w) => w.id === requestId);
+              if (ws) {
+                ws.status = "closed";
+                ws.closedAt = Date.now();
+              }
+            });
+          }
+
+          // Navigate to the page
+          await page.goto(url, {
+            waitUntil: ["load", "networkidle0"],
+            timeout: timeoutMs,
+          });
+
+          // Wait a bit for any remaining requests
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // Calculate compression ratio if any compressed responses
+          const compressionRatio =
+            networkData.summary.compression.transferredSize > 0 ? (((networkData.summary.compression.originalSize - networkData.summary.compression.transferredSize) / networkData.summary.compression.originalSize) * 100).toFixed(1) : 0;
+
+          // Format the network analysis report
+          const report = [
+            `# Network Analysis for ${url}`,
+            "",
+            "## Request Summary",
+            `- Total Requests: ${networkData.summary.totalRequests}`,
+            `- Total Data Transferred: ${(networkData.summary.totalBytes / 1024 / 1024).toFixed(2)}MB`,
+            "",
+            "## Request Methods",
+            ...Object.entries(networkData.summary.byMethod).map(([method, count]) => `- ${method}: ${count} requests`),
+            "",
+            "## Resource Types",
+            ...Object.entries(networkData.summary.byType).map(([type, count]) => `- ${type}: ${count} requests`),
+            "",
+            "## Protocols Used",
+            ...Object.entries(networkData.summary.byProtocol).map(([protocol, count]) => `- ${protocol}: ${count} requests`),
+            "",
+            "## Compression Analysis",
+            `- Original Size: ${(networkData.summary.compression.originalSize / 1024).toFixed(2)}KB`,
+            `- Transferred Size: ${(networkData.summary.compression.transferredSize / 1024).toFixed(2)}KB`,
+            `- Compression Savings: ${compressionRatio}%`,
+            "",
+            "## Caching Analysis",
+            `- Cacheable Resources: ${networkData.caching.cacheable}`,
+            `- Non-cacheable Resources: ${networkData.caching.notCacheable}`,
+            `- Served from Cache: ${networkData.caching.cached}`,
+            "",
+            trackWebSockets && networkData.websockets.length > 0 ? ["## WebSocket Connections", ...networkData.websockets.map((ws) => `- ${ws.url} (${ws.status}${ws.closedAt ? `, duration: ${ws.closedAt - ws.timestamp}ms` : ""})`)] : [],
+            "",
+            includeHeaders && networkData.requests.length > 0
+              ? [
+                  "## Detailed Request Analysis",
+                  ...networkData.requests
+                    .filter((r) => r.headers)
+                    .map((r) => [`### ${r.method} ${r.url.substring(0, 100)}${r.url.length > 100 ? "..." : ""}`, `Type: ${r.resourceType}`, "Headers:", ...Object.entries(r.headers).map(([key, value]) => `  ${key}: ${value}`)].join("\n")),
+                ]
+              : [],
+          ]
+            .flat()
+            .filter(Boolean)
+            .join("\n");
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: report,
+              },
+            ],
+          };
+        } finally {
+          await browser.close();
+        }
+      } catch (error) {
+        const errorDetails = {
+          error: "Network analysis failed",
+          details: error.message,
+          recommendation: "Please try again with different settings",
+          retryable: true,
+          url: url,
+          errorType: error.name,
+          suggestedSettings: {
+            timeoutMs: error.message.includes("timeout") ? timeoutMs * 1.5 : timeoutMs,
+            includeHeaders: error.message.includes("headers") ? false : includeHeaders,
+            trackWebSockets: error.message.includes("websocket") ? false : trackWebSockets,
+          },
+        };
+
+        logError("network", "Network analysis failed", error, errorDetails);
 
         return {
           content: [

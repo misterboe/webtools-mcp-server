@@ -7,12 +7,14 @@ A Model Context Protocol (MCP) server that provides web scraping, content extrac
 - `webtool_gethtml`: Get raw HTML content from any webpage
 - `webtool_readpage`: Convert webpage content to clean, formatted Markdown
 - `webtool_screenshot`: Take screenshots of webpages with custom device emulation
+- `webtool_debug`: Capture console output, network requests, and performance metrics
 - Automatic retry mechanism with exponential backoff
 - Optional proxy support
 - JavaScript rendering support (via Puppeteer)
 - Intelligent HTML cleaning and formatting
 - Markdown conversion with image and link preservation
 - Flexible device emulation for screenshots
+- Comprehensive debugging capabilities
 
 ## Installation
 
@@ -124,6 +126,42 @@ Example screenshot configurations:
     "width": 1920,
     "height": 1080
   }
+}
+```
+
+### webtool_debug
+
+Captures comprehensive debug information from a webpage including console output, network requests, JavaScript errors, and performance metrics.
+
+Parameters:
+
+- `url` (required): The URL of the webpage to debug
+- `captureConsole` (optional): Capture console.log, warn, error output (default: true)
+- `captureNetwork` (optional): Capture network requests and responses (default: true)
+- `captureErrors` (optional): Capture JavaScript errors and exceptions (default: true)
+- `timeoutMs` (optional): How long to collect debug information in milliseconds (default: 10000)
+- `useProxy` (optional): Whether to use a proxy for this request (default: false)
+
+The tool returns a formatted markdown report containing:
+
+- Console output with timestamps and log levels
+- Network requests and responses
+- JavaScript errors and exceptions
+- Performance metrics including:
+  - Navigation timing
+  - Resource loading times
+  - DOM events timing
+  - Network transfer sizes
+
+Example debug configuration:
+
+```json
+{
+  "url": "https://example.com",
+  "captureConsole": true,
+  "captureNetwork": true,
+  "captureErrors": true,
+  "timeoutMs": 15000
 }
 ```
 

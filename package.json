@@ -1,7 +1,7 @@
 {
   "name": "@bschauer/webtools-mcp-server",
-  "version": "1.1.0",
-  "description": "MCP server for web tools including screenshot capabilities",
+  "version": "1.2.0",
+  "description": "MCP server for web tools including screenshot and debug capabilities",
   "main": "src/index.js",
   "bin": {
     "webtools-mcp-server": "src/index.js"
