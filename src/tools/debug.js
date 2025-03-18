@@ -9,7 +9,7 @@ import { fetchWithRetry } from "../utils/fetch.js";
  * @returns {Object} The tool response
  */
 export async function debug(args) {
-  const { url, captureConsole = true, captureNetwork = true, captureErrors = true, timeoutMs = 10000, useProxy = false } = args;
+  const { url, captureConsole = true, captureNetwork = true, captureErrors = true, timeoutMs = 10000, useProxy = false, ignoreSSLErrors = false } = args;
   let puppeteer;
 
   try {
@@ -38,7 +38,7 @@ export async function debug(args) {
     }
 
     // Check site availability first
-    const availability = await checkSiteAvailability(url, {}, fetchWithRetry);
+    const availability = await checkSiteAvailability(url, { ignoreSSLErrors }, fetchWithRetry);
     if (!availability.available) {
       return {
         content: [

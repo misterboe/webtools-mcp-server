@@ -10,7 +10,7 @@ import { BROWSER_HEADERS } from "../config/constants.js";
  * @returns {Object} The tool response
  */
 export async function getHtml(args) {
-  const { url, useJavaScript = false, useProxy = false } = args;
+  const { url, useJavaScript = false, useProxy = false, ignoreSSLErrors = false } = args;
   let puppeteer;
 
   try {
@@ -24,7 +24,7 @@ export async function getHtml(args) {
     }
 
     // Check site availability first
-    const availability = await checkSiteAvailability(url, {}, fetchWithRetry);
+    const availability = await checkSiteAvailability(url, { ignoreSSLErrors }, fetchWithRetry);
     if (!availability.available) {
       logError("tool", "Site unavailable", null, {
         tool: "webtool_gethtml",
@@ -56,7 +56,7 @@ export async function getHtml(args) {
     if (useJavaScript && puppeteer) {
       const browser = await puppeteer.launch({
         headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : ""].filter(Boolean),
+        args: ["--no-sandbox", "--disable-setuid-sandbox", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : "", ignoreSSLErrors ? "--ignore-certificate-errors" : ""].filter(Boolean),
       });
       try {
         const page = await browser.newPage();
@@ -73,6 +73,7 @@ export async function getHtml(args) {
       const response = await fetchWithRetry(url, {
         timeout: 30000,
         useProxy,
+        ignoreSSLErrors,
       });
       content = await response.text();
     }
@@ -114,7 +115,7 @@ export async function getHtml(args) {
  * @returns {Object} The tool response
  */
 export async function readPage(args) {
-  const { url, useJavaScript = false, useProxy = false, selector = "body" } = args;
+  const { url, useJavaScript = false, useProxy = false, selector = "body", ignoreSSLErrors = false } = args;
   let puppeteer;
 
   try {
@@ -145,7 +146,7 @@ export async function readPage(args) {
     }
 
     // Check site availability first
-    const availability = await checkSiteAvailability(url, {}, fetchWithRetry);
+    const availability = await checkSiteAvailability(url, { ignoreSSLErrors }, fetchWithRetry);
     if (!availability.available) {
       return {
         content: [
@@ -171,7 +172,7 @@ export async function readPage(args) {
     if (useJavaScript && puppeteer) {
       const browser = await puppeteer.launch({
         headless: "new",
-        args: ["--no-sandbox", "--disable-setuid-sandbox", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : ""].filter(Boolean),
+        args: ["--no-sandbox", "--disable-setuid-sandbox", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : "", ignoreSSLErrors ? "--ignore-certificate-errors" : ""].filter(Boolean),
       });
       try {
         const page = await browser.newPage();
@@ -197,6 +198,7 @@ export async function readPage(args) {
       const response = await fetchWithRetry(url, {
         timeout: 30000,
         useProxy,
+        ignoreSSLErrors,
       });
       html = await response.text();
       title = extractTitle(html);

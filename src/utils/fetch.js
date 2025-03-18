@@ -31,6 +31,15 @@ export async function fetchWithRetry(url, options = {}, maxRetries = 3) {
         },
       };
 
+      // Handle SSL certificate verification
+      if (options.ignoreSSLErrors) {
+        const https = await import("https");
+        fetchOptions.agent = new https.Agent({
+          rejectUnauthorized: false,
+        });
+        logInfo("fetch", "SSL certificate verification disabled", { url });
+      }
+
       if (PROXY_CONFIG.enabled && (attempt > 0 || proxyAttempted)) {
         logInfo("fetch", `Using proxy on attempt ${attempt + 1}`, {
           proxy: PROXY_CONFIG.url,

@@ -43,6 +43,8 @@ export async function checkSiteAvailability(url, options = {}, fetchWithRetry) {
         ...options,
         method: "HEAD",
         timeout: 10000,
+        // Pass through ignoreSSLErrors if provided
+        ignoreSSLErrors: options.ignoreSSLErrors,
       },
       2
     );

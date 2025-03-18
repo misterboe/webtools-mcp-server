@@ -9,6 +9,7 @@ import { fetchWithRetry } from "./utils/fetch.js";
 import { getHtml, readPage } from "./tools/html.js";
 import { screenshot } from "./tools/screenshot.js";
 import { debug } from "./tools/debug.js";
+import { runLighthouse } from "./tools/lighthouse.js";
 
 // Tool definitions
 const TOOL_DEFINITIONS = [
@@ -30,6 +31,11 @@ const TOOL_DEFINITIONS = [
         useProxy: {
           type: "boolean",
           description: "Whether to use a proxy for this request",
+          default: false,
+        },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
           default: false,
         },
       },
@@ -60,6 +66,11 @@ const TOOL_DEFINITIONS = [
           type: "string",
           description: "Optional CSS selector to extract specific content (e.g., 'main', 'article')",
           default: "body",
+        },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          default: false,
         },
       },
       required: ["url"],
@@ -126,6 +137,11 @@ const TOOL_DEFINITIONS = [
             },
           },
         },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          default: false,
+        },
       },
       required: ["url"],
     },
@@ -163,6 +179,45 @@ const TOOL_DEFINITIONS = [
         useProxy: {
           type: "boolean",
           description: "Whether to use a proxy for this request",
+          default: false,
+        },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          default: false,
+        },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "webtool_lighthouse",
+    description: "Run a Lighthouse audit on a webpage to analyze performance, accessibility, best practices, SEO, and PWA capabilities",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "The URL of the webpage to audit",
+        },
+        categories: {
+          type: "array",
+          description: "Categories to include in the audit",
+          items: {
+            type: "string",
+            enum: ["performance", "accessibility", "best-practices", "seo", "pwa"],
+          },
+          default: ["performance", "accessibility", "best-practices", "seo", "pwa"],
+        },
+        device: {
+          type: "string",
+          description: "Device to emulate",
+          enum: ["mobile", "desktop"],
+          default: "mobile",
+        },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
           default: false,
         },
       },
@@ -224,7 +279,7 @@ function setupRequestHandlers(server) {
     try {
       // Check site availability first if URL is provided
       if (args.url) {
-        const availability = await checkSiteAvailability(args.url, {}, fetchWithRetry);
+        const availability = await checkSiteAvailability(args.url, { ignoreSSLErrors: args.ignoreSSLErrors }, fetchWithRetry);
         if (!availability.available) {
           const response = {
             content: [
@@ -269,6 +324,9 @@ function setupRequestHandlers(server) {
           break;
         case "webtool_debug":
           result = await debug(args);
+          break;
+        case "webtool_lighthouse":
+          result = await runLighthouse(args);
           break;
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
