@@ -63,6 +63,18 @@ export async function runLighthouse(args) {
         disableStorageReset: true,
         // Skip the JS coverage task to match Chrome's behavior
         skipJsComputeBudget: true,
+        // Include more details in the report
+        maxLength: 1000, // Allow more items to be returned
+        screenEmulation: {
+          mobile: device === "mobile",
+          width: device === "mobile" ? 375 : 1350,
+          height: device === "mobile" ? 667 : 940,
+          deviceScaleFactor: 1,
+          disabled: false,
+        },
+        // Enable third-party filtering data
+        onlyAudits: null,
+        skipAudits: null,
       },
     };
 
@@ -153,7 +165,7 @@ export async function runLighthouse(args) {
           // Get audits for this category
           const auditRefs = lhr.categories[category].auditRefs;
 
-          // Filter for failed or warning audits
+          // Filter for failed or warning audits and include full details
           const failedAudits = auditRefs
             .filter((ref) => {
               const audit = lhr.audits[ref.id];
@@ -267,6 +279,80 @@ function formatLighthouseReport(results) {
           report.push(`**Value:** ${audit.displayValue}`);
         }
 
+        // Add detailed information about resources if available
+        if (audit.details) {
+          if (audit.details.type === "table" && audit.details.items && audit.details.items.length > 0) {
+            report.push("");
+            report.push("**Affected Resources:**");
+            report.push("");
+
+            // Get table headers
+            const headers = audit.details.headings.map((h) => h.label || h.key);
+            report.push(`| ${headers.join(" | ")} |`);
+            report.push(`| ${headers.map(() => "----").join(" | ")} |`);
+
+            // Add table rows for each item
+            for (const item of audit.details.items.slice(0, 10)) {
+              // Limit to 10 items to avoid excessive output
+              const cells = audit.details.headings.map((heading) => {
+                const key = heading.key;
+                let value = item[key];
+
+                // Format value based on type
+                if (value === undefined || value === null) {
+                  return "-";
+                } else if (typeof value === "object") {
+                  if (key === "url" || key === "request") {
+                    return formatUrl(value.url || value);
+                  }
+                  return JSON.stringify(value).substring(0, 50) + (JSON.stringify(value).length > 50 ? "..." : "");
+                } else if (typeof value === "string" && (key === "url" || key === "request")) {
+                  return formatUrl(value);
+                } else if (typeof value === "number" && (key === "wastedBytes" || key === "totalBytes")) {
+                  return formatBytes(value);
+                } else if (typeof value === "number" && key === "wastedMs") {
+                  return `${value} ms`;
+                }
+                return String(value);
+              });
+              report.push(`| ${cells.join(" | ")} |`);
+            }
+
+            // Add note if there are more items
+            if (audit.details.items.length > 10) {
+              report.push("");
+              report.push(`*Note: Showing 10 of ${audit.details.items.length} items*`);
+            }
+          } else if (audit.details.type === "opportunity" && audit.details.items) {
+            // Handle opportunity format
+            report.push("");
+            report.push("**Improvement Opportunities:**");
+            report.push("");
+
+            for (const item of audit.details.items.slice(0, 10)) {
+              if (item.url) {
+                report.push(`- ${formatUrl(item.url)}: ${item.wastedMs ? `${item.wastedMs} ms wasted` : ""} ${item.wastedBytes ? `${formatBytes(item.wastedBytes)} wasted` : ""}`);
+              }
+            }
+
+            if (audit.details.items.length > 10) {
+              report.push("");
+              report.push(`*Note: Showing 10 of ${audit.details.items.length} items*`);
+            }
+          } else if (audit.details.type === "debugdata" && audit.details.items) {
+            // Some debug data might be useful
+            report.push("");
+            report.push("**Debug Information:**");
+            report.push("");
+            report.push("```");
+            report.push(JSON.stringify(audit.details.items, null, 2).substring(0, 500));
+            if (JSON.stringify(audit.details.items, null, 2).length > 500) {
+              report.push("...");
+            }
+            report.push("```");
+          }
+        }
+
         report.push("");
       }
     }
@@ -306,4 +392,44 @@ function getCategoryTitle(category) {
     default:
       return category;
   }
+}
+
+/**
+ * Format URL for display in the report
+ * @param {string} url - The URL to format
+ * @returns {string} Formatted URL
+ */
+function formatUrl(url) {
+  try {
+    // Extract just the path and filename parts
+    const urlObj = new URL(url);
+    const path = urlObj.pathname;
+
+    // For simplicity, show only the last part if path is long
+    if (path.length > 40) {
+      const pathParts = path.split("/");
+      if (pathParts.length > 2) {
+        const filename = pathParts[pathParts.length - 1];
+        return `.../${filename} (${urlObj.origin})`;
+      }
+    }
+
+    return `${path} (${urlObj.origin})`;
+  } catch (e) {
+    // If URL parsing fails, return as is
+    return url.length > 50 ? url.substring(0, 47) + "..." : url;
+  }
+}
+
+/**
+ * Format bytes for display
+ * @param {number} bytes - The number of bytes
+ * @returns {string} Formatted size (KB, MB, etc.)
+ */
+function formatBytes(bytes) {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }

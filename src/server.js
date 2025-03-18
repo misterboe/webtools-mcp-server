@@ -192,7 +192,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "webtool_lighthouse",
-    description: "Run a Lighthouse audit on a webpage to analyze performance, accessibility, best practices, SEO, and PWA capabilities",
+    description:
+      "Run a Lighthouse audit on a webpage to generate a comprehensive performance report with detailed resource analysis. The report includes specific file paths, resource sizes, and performance metrics similar to Chrome DevTools. Identifies exact files causing performance issues without offering improvement suggestions.",
     inputSchema: {
       type: "object",
       properties: {
