@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.0] - 2024-03-25
+
+### Added
+
+- Unified Lighthouse-based web auditing system
+- Support for multiple audit categories in a single request
+- Device emulation for mobile and desktop rendering
+
+### Improved
+
+- Comprehensive documentation update
+- Better alignment of documentation with actual implementation
+- Enhanced error handling and reporting
+- Improved configuration options
+- Clearer examples and usage instructions
+
 ## [1.3.0] - 2024-03-21
 
 ### Added
