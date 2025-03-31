@@ -10,6 +10,7 @@ import { getHtml, readPage } from "./tools/html.js";
 import { screenshot } from "./tools/screenshot.js";
 import { debug } from "./tools/debug.js";
 import { runLighthouse } from "./tools/lighthouse.js";
+import { performanceTrace } from "./tools/performance_trace.js";
 
 // Tool definitions
 const TOOL_DEFINITIONS = [
@@ -148,7 +149,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "webtool_debug",
-    description: "Debug a webpage by capturing console output, network requests, and errors",
+    description: "Debug a webpage by capturing console output, network requests, and errors with custom device emulation",
     inputSchema: {
       type: "object",
       properties: {
@@ -180,6 +181,46 @@ const TOOL_DEFINITIONS = [
           type: "boolean",
           description: "Whether to use a proxy for this request",
           default: false,
+        },
+        deviceConfig: {
+          type: "object",
+          description: "Custom device configuration for emulation",
+          properties: {
+            width: {
+              type: "number",
+              description: "Viewport width in pixels",
+              default: 1920,
+            },
+            height: {
+              type: "number",
+              description: "Viewport height in pixels",
+              default: 1080,
+            },
+            deviceScaleFactor: {
+              type: "number",
+              description: "Device scale factor (e.g., 2 for retina displays)",
+              default: 1,
+            },
+            isMobile: {
+              type: "boolean",
+              description: "Whether to emulate a mobile device",
+              default: false,
+            },
+            hasTouch: {
+              type: "boolean",
+              description: "Whether to enable touch events",
+              default: false,
+            },
+            isLandscape: {
+              type: "boolean",
+              description: "Whether to use landscape orientation",
+              default: false,
+            },
+            userAgent: {
+              type: "string",
+              description: "Custom user agent string",
+            },
+          },
         },
         ignoreSSLErrors: {
           type: "boolean",
@@ -220,6 +261,101 @@ const TOOL_DEFINITIONS = [
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
           default: false,
+        },
+      },
+      required: ["url"],
+    },
+  },
+  {
+    name: "webtool_performance_trace",
+    description:
+      "Perform a detailed performance analysis similar to Chrome DevTools Performance panel. Captures CPU profiles, JavaScript execution timelines, network waterfall, rendering performance metrics, and provides specific optimization suggestions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "The URL of the webpage to analyze",
+        },
+        timeoutMs: {
+          type: "number",
+          description: "Timeout in milliseconds for the analysis",
+          default: 15000,
+        },
+        captureCPUProfile: {
+          type: "boolean",
+          description: "Whether to capture CPU profile to identify JavaScript bottlenecks",
+          default: true,
+        },
+        captureNetworkActivity: {
+          type: "boolean",
+          description: "Whether to capture detailed network requests and timing",
+          default: true,
+        },
+        captureJSProfile: {
+          type: "boolean",
+          description: "Whether to capture JavaScript execution profile",
+          default: true,
+        },
+        captureRenderingPerformance: {
+          type: "boolean",
+          description: "Whether to capture rendering performance metrics (layout shifts, layer tree)",
+          default: true,
+        },
+        captureMemoryProfile: {
+          type: "boolean",
+          description: "Whether to capture memory usage profile",
+          default: false,
+        },
+        useProxy: {
+          type: "boolean",
+          description: "Whether to use a proxy for this request",
+          default: false,
+        },
+        ignoreSSLErrors: {
+          type: "boolean",
+          description: "Whether to ignore SSL certificate errors (use with caution)",
+          default: false,
+        },
+        deviceConfig: {
+          type: "object",
+          description: "Device configuration for emulation",
+          properties: {
+            width: {
+              type: "number",
+              description: "Viewport width in pixels",
+              default: 1920,
+            },
+            height: {
+              type: "number",
+              description: "Viewport height in pixels",
+              default: 1080,
+            },
+            deviceScaleFactor: {
+              type: "number",
+              description: "Device scale factor (e.g., 2 for retina displays)",
+              default: 1,
+            },
+            isMobile: {
+              type: "boolean",
+              description: "Whether to emulate a mobile device",
+              default: false,
+            },
+            hasTouch: {
+              type: "boolean",
+              description: "Whether to enable touch events",
+              default: false,
+            },
+            isLandscape: {
+              type: "boolean",
+              description: "Whether to use landscape orientation",
+              default: false,
+            },
+            userAgent: {
+              type: "string",
+              description: "Custom user agent string",
+            },
+          },
         },
       },
       required: ["url"],
@@ -328,6 +464,9 @@ function setupRequestHandlers(server) {
           break;
         case "webtool_lighthouse":
           result = await runLighthouse(args);
+          break;
+        case "webtool_performance_trace":
+          result = await performanceTrace(args);
           break;
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
