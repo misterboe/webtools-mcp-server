@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.6.0] - 2025-03-31
+
+### Added
+
+- Complete performance analysis framework with specialized tools:
+  - Network Monitor: Detailed network activity and resource loading analysis
+  - Coverage Analysis: JavaScript and CSS coverage analysis
+  - Web Vitals Analysis: Core Web Vitals metrics and element identification
+  - Performance Test Framework: Cross-device and network condition testing
+- Comparative analysis across devices and network conditions
+- Configurable device profiles for realistic testing
+- Network condition simulation
+- Detailed reporting with actionable recommendations
+
+### Improved
+
+- Modular architecture for better maintainability
+- Split large files into smaller, more focused modules
+- Better organization of performance analysis tools
+- Enhanced configuration options for device emulation
+- More comprehensive documentation
+
 ## [1.5.1] - 2025-03-31
 
 ### Added

@@ -13,6 +13,19 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
 
 ## Changelog
 
+### Version 1.6.0 - Comprehensive Performance Analysis Framework
+
+- 🔍 Complete performance analysis framework with specialized tools:
+  - **Network Monitor**: Detailed network activity and resource loading analysis
+  - **Coverage Analysis**: JavaScript and CSS coverage analysis
+  - **Web Vitals Analysis**: Core Web Vitals metrics and element identification
+  - **Performance Test Framework**: Cross-device and network condition testing
+- 📊 Comparative analysis across devices and network conditions
+- 📱 Configurable device profiles for realistic testing
+- 🌐 Network condition simulation
+- 🧩 Modular architecture for better maintainability
+- 📈 Detailed reporting with actionable recommendations
+
 ### Version 1.5.1 - Layout Thrashing Detection & Stability Improvements
 
 - 🔍 Enhanced debug tool with layout thrashing detection
@@ -109,6 +122,9 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - Best practices review
   - Progressive Web App assessment
   - Device emulation support
+
+### Performance Analysis Tools
+
 - `webtool_performance_trace`: Advanced Performance Analysis
   - Layout thrashing detection
   - CSS variables impact analysis
@@ -116,6 +132,30 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - Long task breakdown and attribution
   - Memory and DOM size analysis
   - Resource loading optimization
+- `webtool_network_monitor`: Network Activity Analysis
+  - Detailed request and response analysis
+  - Resource timing information
+  - Waterfall visualization data
+  - Optimization recommendations
+  - Third-party request analysis
+  - Cache analysis
+- `webtool_coverage_analysis`: Code Coverage Analysis
+  - JavaScript and CSS coverage analysis
+  - Unused code identification
+  - Code splitting recommendations
+  - Third-party code analysis
+- `webtool_web_vitals`: Core Web Vitals Analysis
+  - LCP (Largest Contentful Paint) analysis
+  - CLS (Cumulative Layout Shift) analysis
+  - FID/INP (First Input Delay/Interaction to Next Paint) analysis
+  - TTFB (Time to First Byte) analysis
+  - Element-specific analysis
+- `webtool_performance_test`: Cross-device and Network Testing
+  - Multi-device testing
+  - Network condition simulation
+  - Comparative analysis
+  - Baseline comparison
+  - Device-specific recommendations
 
 ## Installation
 
@@ -140,7 +180,7 @@ You can use this server directly with Claude Desktop by adding it to your config
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.5.1"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@1.6.0"]
     }
   }
 }
@@ -162,6 +202,62 @@ Create a configuration file at `~/.mcp/webtools-mcp-server.config.json`:
     "defaultViewport": {
       "width": 1920,
       "height": 1080
+    }
+  },
+  "devices": {
+    "mobile": {
+      "width": 375,
+      "height": 812,
+      "deviceScaleFactor": 3,
+      "isMobile": true,
+      "hasTouch": true,
+      "isLandscape": false,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
+    },
+    "tablet": {
+      "width": 768,
+      "height": 1024,
+      "deviceScaleFactor": 2,
+      "isMobile": true,
+      "hasTouch": true,
+      "isLandscape": false,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
+    },
+    "desktop": {
+      "width": 1920,
+      "height": 1080,
+      "deviceScaleFactor": 1,
+      "isMobile": false,
+      "hasTouch": false,
+      "isLandscape": true,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    }
+  },
+  "networkConditions": {
+    "Slow 3G": {
+      "downloadThroughput": 500000,
+      "uploadThroughput": 300000,
+      "latency": 400
+    },
+    "Fast 3G": {
+      "downloadThroughput": 1500000,
+      "uploadThroughput": 750000,
+      "latency": 300
+    },
+    "4G": {
+      "downloadThroughput": 4000000,
+      "uploadThroughput": 2000000,
+      "latency": 100
+    },
+    "WiFi": {
+      "downloadThroughput": 30000000,
+      "uploadThroughput": 15000000,
+      "latency": 20
+    },
+    "Fiber": {
+      "downloadThroughput": 100000000,
+      "uploadThroughput": 50000000,
+      "latency": 5
     }
   }
 }
@@ -299,6 +395,64 @@ webtool_performance_trace({
 });
 ```
 
+### Network Activity Analysis
+
+```javascript
+webtool_network_monitor({
+  url: "https://example.com",
+  timeoutMs: 15000,
+  waitAfterLoadMs: 2000,
+  includeThirdParty: true,
+  disableCache: true,
+  captureHeaders: true,
+  captureTimings: true,
+  deviceName: "mobile", // Use predefined device
+  networkConditionName: "4G", // Use predefined network condition
+});
+```
+
+### Code Coverage Analysis
+
+```javascript
+webtool_coverage_analysis({
+  url: "https://example.com",
+  timeoutMs: 15000,
+  waitAfterLoadMs: 2000,
+  includeThirdParty: true,
+  disableCache: true,
+  deviceName: "desktop",
+});
+```
+
+### Core Web Vitals Analysis
+
+```javascript
+webtool_web_vitals({
+  url: "https://example.com",
+  timeoutMs: 15000,
+  waitAfterLoadMs: 3000,
+  interactWithPage: true,
+  deviceName: "mobile",
+  networkConditionName: "4G",
+});
+```
+
+### Cross-device and Network Testing
+
+```javascript
+webtool_performance_test({
+  url: "https://example.com",
+  timeoutMs: 30000,
+  devices: ["desktop", "mobile", "tablet"],
+  networkConditions: ["WiFi", "4G", "3G"],
+  tests: ["web_vitals", "network", "coverage"],
+  compareResults: true,
+  baselineDevice: "desktop",
+  baselineNetwork: "WiFi",
+  includeScreenshots: true,
+});
+```
+
 ## Response Format
 
 All tools return responses in the following format:
@@ -353,6 +507,11 @@ For Lighthouse audits:
 8. When using device emulation, match real device specifications for accurate results
 9. For large websites, focus on specific pages rather than entire sites
 10. Use the debug tool to understand JavaScript errors before applying fixes
+11. For performance testing, start with the baseline device and network condition
+12. Compare results across different devices and network conditions to identify device-specific issues
+13. Use the performance test framework to identify optimization opportunities for specific scenarios
+14. Focus on Core Web Vitals metrics for the best user experience improvements
+15. Use code coverage analysis to identify unused code and optimize bundle size
 
 ## Troubleshooting
 
@@ -392,6 +551,21 @@ Common issues and solutions:
 
 - **Issue**: No layout thrashing events detected
 - **Solution**: Ensure captureLayoutThrashing is set to true, increase timeoutMs, try with different pages
+
+### Performance Test Framework Issues
+
+- **Issue**: Performance test framework times out
+- **Solution**: Reduce the number of devices and network conditions, increase timeout, run tests individually
+
+### Network Monitor Issues
+
+- **Issue**: Network monitor shows incomplete data
+- **Solution**: Increase waitAfterLoadMs, ensure captureTimings is set to true, check for CORS issues
+
+### Code Coverage Analysis Issues
+
+- **Issue**: Code coverage analysis shows no results
+- **Solution**: Ensure the page loads JavaScript, increase waitAfterLoadMs, check for script loading errors
 
 ## Security Considerations
 
