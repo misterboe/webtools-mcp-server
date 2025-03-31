@@ -6,10 +6,42 @@ import { fetchWithRetry } from "../utils/fetch.js";
 /**
  * Debug a webpage by capturing console output, network requests, and errors
  * @param {Object} args - The tool arguments
+ * @param {string} args.url - The URL to debug
+ * @param {boolean} [args.captureConsole=true] - Whether to capture console output
+ * @param {boolean} [args.captureNetwork=true] - Whether to capture network requests
+ * @param {boolean} [args.captureErrors=true] - Whether to capture JavaScript errors
+ * @param {number} [args.timeoutMs=10000] - Timeout in milliseconds
+ * @param {boolean} [args.useProxy=false] - Whether to use a proxy
+ * @param {boolean} [args.ignoreSSLErrors=false] - Whether to ignore SSL errors
+ * @param {Object} [args.deviceConfig] - Device configuration for emulation
+ * @param {number} [args.deviceConfig.width=1920] - Viewport width in pixels
+ * @param {number} [args.deviceConfig.height=1080] - Viewport height in pixels
+ * @param {number} [args.deviceConfig.deviceScaleFactor=1] - Device scale factor (e.g., 2 for retina displays)
+ * @param {boolean} [args.deviceConfig.isMobile=false] - Whether to emulate a mobile device
+ * @param {boolean} [args.deviceConfig.hasTouch=false] - Whether to enable touch events
+ * @param {boolean} [args.deviceConfig.isLandscape=false] - Whether to use landscape orientation
+ * @param {string} [args.deviceConfig.userAgent] - Custom user agent string
  * @returns {Object} The tool response
  */
 export async function debug(args) {
-  const { url, captureConsole = true, captureNetwork = true, captureErrors = true, timeoutMs = 10000, useProxy = false, ignoreSSLErrors = false } = args;
+  const {
+    url,
+    captureConsole = true,
+    captureNetwork = true,
+    captureErrors = true,
+    timeoutMs = 10000,
+    useProxy = false,
+    ignoreSSLErrors = false,
+    deviceConfig = {
+      width: 1920,
+      height: 1080,
+      deviceScaleFactor: 1,
+      isMobile: false,
+      hasTouch: false,
+      isLandscape: false,
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    },
+  } = args;
   let puppeteer;
 
   try {
@@ -63,6 +95,9 @@ export async function debug(args) {
     const debugData = {
       url,
       timestamp: new Date().toISOString(),
+      device: {
+        config: deviceConfig,
+      },
       console: [],
       network: [],
       errors: [],
@@ -77,6 +112,17 @@ export async function debug(args) {
     try {
       const page = await browser.newPage();
       await page.setExtraHTTPHeaders(BROWSER_HEADERS);
+
+      // Set device configuration
+      await page.setViewport({
+        width: deviceConfig.width,
+        height: deviceConfig.height,
+        deviceScaleFactor: deviceConfig.deviceScaleFactor,
+        isMobile: deviceConfig.isMobile,
+        hasTouch: deviceConfig.hasTouch,
+        isLandscape: deviceConfig.isLandscape,
+      });
+      await page.setUserAgent(deviceConfig.userAgent);
 
       // Capture console output
       if (captureConsole) {
@@ -139,7 +185,6 @@ export async function debug(args) {
       // Start performance monitoring
       await page.evaluate(() => {
         try {
-          // Clear any existing marks first
           performance.clearMarks();
           performance.clearMeasures();
           performance.mark("debug-start");
@@ -209,6 +254,9 @@ export async function debug(args) {
         `# Debug Report for ${url}`,
         `Generated at: ${debugData.timestamp}`,
         "",
+        "## Device Configuration",
+        `- Profile: ${JSON.stringify(deviceConfig)}`,
+        "",
         "## Console Output",
         debugData.console.length > 0 ? debugData.console.map((log) => `- [${log.timestamp}] ${log.type.toUpperCase()}: ${log.text}`).join("\n") : "- No console output captured",
         "",
@@ -247,23 +295,11 @@ export async function debug(args) {
     const errorDetails = {
       error: "Debug failed",
       details: error.message,
-      recommendation: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED")
-        ? "Proxy connection failed. Please try without proxy"
-        : error.message.includes("net::ERR_CONNECTION_REFUSED")
-        ? "Connection refused. The site might be blocking automated access"
-        : error.message.includes("net::ERR_NAME_NOT_RESOLVED")
-        ? "Could not resolve the domain name. Please check the URL"
-        : "Please try again with different settings",
+      recommendation: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? "Proxy connection failed. Please try without proxy" : "Please try again with different settings",
       retryable: true,
       url,
-      useProxy: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? false : useProxy,
-      suggestedSettings: {
-        timeoutMs: error.message.includes("TimeoutError") ? timeoutMs * 2 : timeoutMs,
-        useJavaScript: error.message.includes("JavaScript") || error.message.includes("not defined"),
-        captureNetwork: error.message.includes("request interception") ? false : captureNetwork,
-      },
+      useProxy: error.message.includes("net::ERR_PROXY_CONNECTION_FAILED") ? false : !useProxy,
       errorType: error.name,
-      errorCategory: error.message.includes("net::") ? "network" : error.message.includes("timeout") ? "timeout" : error.message.includes("JavaScript") ? "javascript" : "unknown",
     };
 
     logError("debug", "Debug capture failed", error, errorDetails);

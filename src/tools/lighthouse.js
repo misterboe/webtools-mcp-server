@@ -3,6 +3,93 @@ import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
 import * as lighthouse from "lighthouse";
 import * as chromeLauncher from "chrome-launcher";
+import fs from "fs";
+import path from "path";
+
+// Try to find Puppeteer installation
+let puppeteerChromePath = null;
+try {
+  // Check if Puppeteer is installed
+  const puppeteerPkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "node_modules", "puppeteer", "package.json"), "utf8"));
+  if (puppeteerPkg) {
+    logInfo("lighthouse", "Puppeteer detected, will use as fallback if Chrome is not found");
+  }
+} catch (error) {
+  // Puppeteer not installed, will use system Chrome
+  logInfo("lighthouse", "Puppeteer not found, will use system Chrome installation");
+}
+
+/**
+ * Try to find an available Chrome installation
+ * @returns {string|null} Chrome executable path or null if not found
+ */
+async function findChromeInstallation() {
+  // First try environment variable
+  if (process.env.CHROME_PATH) {
+    if (fs.existsSync(process.env.CHROME_PATH)) {
+      logInfo("lighthouse", "Using Chrome from CHROME_PATH environment variable");
+      return process.env.CHROME_PATH;
+    }
+  }
+
+  // Try to find Chrome using chrome-launcher
+  try {
+    const installation = await chromeLauncher.getChromePath();
+    if (installation) {
+      logInfo("lighthouse", "Found Chrome installation using chrome-launcher");
+      return installation;
+    }
+  } catch (error) {
+    logInfo("lighthouse", "Chrome not found using chrome-launcher");
+  }
+
+  // Try to find Puppeteer's Chrome
+  try {
+    // Common paths for Puppeteer's Chrome
+    const possiblePaths = [
+      // Global puppeteer installation
+      path.resolve(process.cwd(), "node_modules", "puppeteer", ".local-chromium"),
+      // User's home directory for puppeteer installation
+      path.resolve(process.env.HOME || process.env.USERPROFILE, ".cache", "puppeteer"),
+    ];
+
+    for (const basePath of possiblePaths) {
+      if (fs.existsSync(basePath)) {
+        // Find the first directory in the .local-chromium directory
+        const chromiumDirs = fs.readdirSync(basePath);
+        for (const dir of chromiumDirs) {
+          const platformDirs = fs.readdirSync(path.join(basePath, dir));
+          for (const platformDir of platformDirs) {
+            // For Mac
+            const macPath = path.join(basePath, dir, platformDir, "chrome-mac", "Chromium.app", "Contents", "MacOS", "Chromium");
+            if (fs.existsSync(macPath)) {
+              logInfo("lighthouse", "Found Puppeteer's Chrome on Mac");
+              return macPath;
+            }
+
+            // For Linux
+            const linuxPath = path.join(basePath, dir, platformDir, "chrome-linux", "chrome");
+            if (fs.existsSync(linuxPath)) {
+              logInfo("lighthouse", "Found Puppeteer's Chrome on Linux");
+              return linuxPath;
+            }
+
+            // For Windows
+            const winPath = path.join(basePath, dir, platformDir, "chrome-win", "chrome.exe");
+            if (fs.existsSync(winPath)) {
+              logInfo("lighthouse", "Found Puppeteer's Chrome on Windows");
+              return winPath;
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logInfo("lighthouse", "Error finding Puppeteer's Chrome", error);
+  }
+
+  return null;
+}
 
 /**
  * Run a Lighthouse audit on a webpage
@@ -36,6 +123,9 @@ export async function runLighthouse(args) {
       };
     }
 
+    // Find Chrome installation
+    const chromePath = await findChromeInstallation();
+
     // Configure Chrome flags
     const chromeFlags = ["--headless", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"];
 
@@ -44,10 +134,40 @@ export async function runLighthouse(args) {
       chromeFlags.push("--ignore-certificate-errors");
     }
 
-    // Launch Chrome
-    const chrome = await chromeLauncher.launch({
+    // Launch Chrome options
+    const launchOptions = {
       chromeFlags,
-    });
+    };
+
+    // Use specific Chrome path if found
+    if (chromePath) {
+      launchOptions.chromePath = chromePath;
+    }
+
+    // Launch Chrome
+    let chrome;
+    try {
+      chrome = await chromeLauncher.launch(launchOptions);
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                error: "Chrome launch failed",
+                details: "No Chrome installations found or Chrome could not be launched. " + error.message,
+                recommendation: "Please install Chrome/Chromium or install Puppeteer globally: 'npm install -g puppeteer'",
+                retryable: true,
+                url,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    }
 
     // Use Chrome's default configuration
     const config = {

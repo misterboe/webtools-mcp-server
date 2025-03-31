@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.1] - 2024-03-25
+
+### Fixed
+
+- Chrome detection and availability issues
+- Improved error handling for missing Chrome installations
+- Added support for automatically finding Puppeteer's Chrome installation
+- Updated documentation with Chrome requirements and troubleshooting tips
+
 ## [1.4.0] - 2024-03-25
 
 ### Added

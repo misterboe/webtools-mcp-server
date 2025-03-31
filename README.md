@@ -4,7 +4,21 @@
 
 A Model Context Protocol server providing comprehensive web analysis tools including HTML extraction, markdown conversion, screenshot capabilities, debug console, and Lighthouse-powered web audits for performance, accessibility, SEO, and more.
 
+## Prerequisites
+
+- **Node.js**: Version 14 or higher
+- **Chrome/Chromium**: Automatically provided by Puppeteer
+  - The server will use Puppeteer's bundled Chrome
+  - No need to install Chrome separately
+
 ## Changelog
+
+### Version 1.4.1 - Chrome Integration Fix
+
+- 🛠️ Fixed Chrome detection and availability issues
+- 🔧 Added automatic Chrome installation via Puppeteer
+- 📚 Updated documentation with Chrome requirements
+- 💬 Improved error messages for better troubleshooting
 
 ### Version 1.4.0 - Lighthouse Integration & Documentation Update
 
@@ -97,7 +111,7 @@ You can use this server directly with Claude Desktop by adding it to your config
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.3.0"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@1.4.1"]
     }
   }
 }
@@ -264,6 +278,11 @@ For Lighthouse audits:
 ## Troubleshooting
 
 Common issues and solutions:
+
+### Chrome Installation
+
+- **Note**: Chrome is now automatically installed via Puppeteer - no additional steps required
+- If you encounter any Chrome-related issues, try reinstalling the package with `npm install -g @bschauer/webtools-mcp-server`
 
 ### Connection Problems
 

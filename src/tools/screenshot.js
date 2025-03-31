@@ -2,6 +2,49 @@ import { logInfo, logError } from "../utils/logging.js";
 import { BROWSER_HEADERS } from "../config/constants.js";
 import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
+import sharp from "sharp";
+
+/**
+ * Compress and resize screenshot to reduce data size
+ * @param {Buffer} buffer - Original screenshot buffer
+ * @param {Object} options - Compression options
+ * @returns {Promise<Buffer>} Compressed screenshot buffer
+ */
+async function compressScreenshot(buffer, options = {}) {
+  const { maxWidth = 1920, maxHeight = 1080, quality = 80, format = "jpeg" } = options;
+
+  try {
+    const image = sharp(buffer);
+    const metadata = await image.metadata();
+
+    // Calculate new dimensions while maintaining aspect ratio
+    let width = metadata.width;
+    let height = metadata.height;
+
+    if (width > maxWidth || height > maxHeight) {
+      const ratio = Math.min(maxWidth / width, maxHeight / height);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+    }
+
+    // Resize and compress
+    return await image
+      .resize(width, height, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .toFormat(format, {
+        quality,
+        progressive: true,
+        optimizeScans: true,
+        mozjpeg: true,
+      })
+      .toBuffer();
+  } catch (error) {
+    logError("screenshot", "Compression failed", error);
+    return buffer; // Return original if compression fails
+  }
+}
 
 /**
  * Take a screenshot of a webpage or specific element
@@ -9,7 +52,19 @@ import { fetchWithRetry } from "../utils/fetch.js";
  * @returns {Object} The tool response
  */
 export async function screenshot(args) {
-  const { url, selector, useProxy = false, deviceConfig, ignoreSSLErrors = false } = args;
+  const {
+    url,
+    selector,
+    useProxy = false,
+    deviceConfig,
+    ignoreSSLErrors = false,
+    compression = {
+      maxWidth: 1920,
+      maxHeight: 1080,
+      quality: 80,
+      format: "jpeg",
+    },
+  } = args;
   let puppeteer;
 
   try {
@@ -124,14 +179,16 @@ export async function screenshot(args) {
         });
       }
 
-      const base64Data = screenshotBuffer.toString("base64");
+      // Compress and resize the screenshot
+      const compressedBuffer = await compressScreenshot(screenshotBuffer, compression);
+      const base64Data = compressedBuffer.toString("base64");
 
       return {
         content: [
           {
             type: "image",
             data: base64Data,
-            mimeType: "image/png",
+            mimeType: `image/${compression.format}`,
           },
         ],
       };
