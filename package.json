@@ -1,6 +1,6 @@
 {
   "name": "@bschauer/webtools-mcp-server",
-  "version": "1.4.1",
+  "version": "1.5.1",
   "description": "MCP server providing web analysis tools including screenshot, debug, performance, security, accessibility, SEO, and asset optimization capabilities",
   "main": "src/index.js",
   "bin": {

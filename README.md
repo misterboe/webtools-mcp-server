@@ -2,7 +2,7 @@
 
 ⚠️ **IMPORTANT DISCLAIMER**: This software has been developed with the assistance of AI technology. It is provided as-is and should NOT be used in production environments without thorough testing and validation. The code may contain errors, security vulnerabilities, or unexpected behavior. Use at your own risk for research, learning, or development purposes only.
 
-A Model Context Protocol server providing comprehensive web analysis tools including HTML extraction, markdown conversion, screenshot capabilities, debug console, and Lighthouse-powered web audits for performance, accessibility, SEO, and more.
+A Model Context Protocol server providing comprehensive web analysis tools including HTML extraction, markdown conversion, screenshot capabilities, debug console, advanced performance analysis, and Lighthouse-powered web audits for performance, accessibility, SEO, and more.
 
 ## Prerequisites
 
@@ -12,6 +12,27 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - No need to install Chrome separately
 
 ## Changelog
+
+### Version 1.5.1 - Layout Thrashing Detection & Stability Improvements
+
+- 🔍 Enhanced debug tool with layout thrashing detection
+- 🔄 Improved server capabilities communication
+- 🛠️ Increased stability for debug tool
+- 💬 Enhanced client-server communication
+
+### Version 1.5.0 - Enhanced Performance Analysis
+
+- 🔍 Advanced performance analysis with specialized modules:
+  - **Layout Thrashing Analysis**: Detects and visualizes layout thrashing patterns
+  - **CSS Variables Impact Analyzer**: Tracks CSS variable changes and their cascade effects
+  - **JavaScript Execution Timeline**: Maps JS functions to layout events
+  - **Long Task Breakdown Analyzer**: Provides detailed attribution of long tasks
+  - **Memory and DOM Size Analyzer**: Tracks DOM growth and detects memory leaks
+  - **Resource Loading Optimizer**: Analyzes resource loading waterfall
+- 🧩 Modular architecture for performance analysis tools
+- 📊 More detailed performance bottleneck detection
+- 📈 Better visualization of performance issues
+- 🛠️ More actionable recommendations for performance optimization
 
 ### Version 1.4.1 - Chrome Integration Fix
 
@@ -80,6 +101,7 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - Network request monitoring
   - Error tracking
   - Performance metrics
+  - Layout thrashing detection
 - `webtool_lighthouse`: Comprehensive Web Audit
   - Performance analysis
   - Accessibility testing
@@ -87,6 +109,13 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - Best practices review
   - Progressive Web App assessment
   - Device emulation support
+- `webtool_performance_trace`: Advanced Performance Analysis
+  - Layout thrashing detection
+  - CSS variables impact analysis
+  - JavaScript execution timeline with layout correlation
+  - Long task breakdown and attribution
+  - Memory and DOM size analysis
+  - Resource loading optimization
 
 ## Installation
 
@@ -111,7 +140,7 @@ You can use this server directly with Claude Desktop by adding it to your config
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.4.1"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@1.5.1"]
     }
   }
 }
@@ -195,7 +224,21 @@ webtool_debug({
   captureConsole: true,
   captureNetwork: true,
   captureErrors: true,
-  timeoutMs: 5000,
+  captureLayoutThrashing: true, // Enable layout thrashing detection
+  timeoutMs: 15000,
+});
+```
+
+// Focus on layout thrashing detection
+
+```javascript
+webtool_debug({
+  url: "https://example.com",
+  captureConsole: false,
+  captureNetwork: false,
+  captureErrors: true,
+  captureLayoutThrashing: true,
+  timeoutMs: 15000,
 });
 ```
 
@@ -217,6 +260,42 @@ webtool_lighthouse({
   url: "https://example.com",
   categories: ["performance", "seo"], // Only performance and SEO
   device: "desktop",
+});
+```
+
+### Advanced Performance Analysis
+
+```javascript
+webtool_performance_trace({
+  url: "https://example.com",
+  timeoutMs: 15000,
+  captureCPUProfile: true,
+  captureNetworkActivity: true,
+  captureJSProfile: true,
+  captureRenderingPerformance: true,
+  captureMemoryProfile: true,
+  deviceConfig: {
+    width: 1920,
+    height: 1080,
+    deviceScaleFactor: 1,
+    isMobile: false,
+  },
+});
+```
+
+// Focus on specific performance aspects
+
+```javascript
+webtool_performance_trace({
+  url: "https://example.com",
+  captureRenderingPerformance: true, // Focus on layout and rendering
+  captureMemoryProfile: true, // Include memory analysis
+  deviceConfig: {
+    width: 375,
+    height: 812,
+    deviceScaleFactor: 3,
+    isMobile: true,
+  },
 });
 ```
 
@@ -308,6 +387,11 @@ Common issues and solutions:
 
 - **Issue**: Cannot connect through proxy
 - **Solution**: Verify proxy URL, check proxy connection timeout, ensure proxy is operational
+
+### Layout Thrashing Detection Issues
+
+- **Issue**: No layout thrashing events detected
+- **Solution**: Ensure captureLayoutThrashing is set to true, increase timeoutMs, try with different pages
 
 ## Security Considerations
 

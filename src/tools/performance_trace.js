@@ -2,6 +2,7 @@ import { logInfo, logError } from "../utils/logging.js";
 import { BROWSER_HEADERS } from "../config/constants.js";
 import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
+import { analyzeTraceData } from "./performance_analysis/index.js";
 import fs from "fs";
 import path from "path";
 
@@ -292,7 +293,30 @@ export async function performanceTrace(args) {
     }
 
     // Analyze trace data for bottlenecks if available
-    const bottlenecks = traceData ? analyzeTraceData(traceData) : [];
+    const bottlenecks = traceData
+      ? analyzeTraceData(traceData, {
+          // Analysis module controls
+          analyzeLayoutThrashing: args.analyzeLayoutThrashing !== false,
+          analyzeCssVariables: args.analyzeCssVariables !== false,
+          analyzeJsExecution: args.analyzeJsExecution !== false,
+          analyzeLongTasks: args.analyzeLongTasks !== false,
+          analyzeMemoryAndDom: args.analyzeMemoryAndDom !== false,
+          analyzeResourceLoading: args.analyzeResourceLoading !== false,
+
+          // Threshold controls
+          longTaskThresholdMs: args.longTaskThresholdMs || 50,
+          layoutThrashingThreshold: args.layoutThrashingThreshold || 10,
+          memoryLeakThresholdKb: args.memoryLeakThresholdKb || 10,
+
+          // Output controls
+          detailLevel: args.detailLevel || "detailed",
+          includeRecommendations: args.includeRecommendations !== false,
+
+          // Focus controls
+          focusSelector: args.focusSelector,
+          focusTimeRangeMs: args.focusTimeRangeMs,
+        })
+      : [];
 
     // If tracing failed but we have other metrics, add a note about it
     if (!traceData && (performanceMetrics || networkInfo)) {
@@ -358,88 +382,5 @@ export async function performanceTrace(args) {
         logError("performance_trace", "Failed to close browser", closeError, { url });
       }
     }
-  }
-}
-
-/**
- * Analyze trace data to identify performance bottlenecks
- * @param {Object} traceData - The trace data from Chrome DevTools
- * @returns {Array<Object>} List of identified bottlenecks
- */
-function analyzeTraceData(traceData) {
-  try {
-    const bottlenecks = [];
-    const events = traceData?.events || [];
-
-    // Analyze long tasks
-    const longTasks = events.filter((event) => event.name === "RunTask" && event.dur > 50);
-    if (longTasks.length > 0) {
-      bottlenecks.push({
-        type: "long_tasks",
-        description: `Found ${longTasks.length} long tasks (>50ms)`,
-        details: longTasks.map((task) => ({
-          duration: task.dur,
-          startTime: task.ts,
-        })),
-      });
-    }
-
-    // Analyze layout thrashing
-    const layoutEvents = events.filter((event) => event.name === "Layout");
-    if (layoutEvents.length > 10) {
-      bottlenecks.push({
-        type: "layout_thrashing",
-        description: `High number of layout operations (${layoutEvents.length})`,
-        details: layoutEvents.map((layout) => ({
-          duration: layout.dur,
-          startTime: layout.ts,
-        })),
-      });
-    }
-
-    // Analyze JavaScript execution
-    const jsEvents = events.filter((event) => event.name === "V8.Execute");
-    if (jsEvents.length > 0) {
-      const totalJsTime = jsEvents.reduce((sum, event) => sum + (event.dur || 0), 0);
-      bottlenecks.push({
-        type: "javascript_execution",
-        description: `Total JavaScript execution time: ${totalJsTime.toFixed(2)}ms`,
-        details: jsEvents.map((js) => ({
-          duration: js.dur,
-          startTime: js.ts,
-        })),
-      });
-    }
-
-    // Analyze resource loading
-    const resourceEvents = events.filter((event) => event.name === "ResourceReceiveResponse" || event.name === "ResourceFinish");
-
-    if (resourceEvents.length > 0) {
-      const largeResources = resourceEvents
-        .filter((event) => event.args?.data?.encodedDataLength > 500000)
-        .map((event) => ({
-          url: event.args?.data?.url,
-          size: event.args?.data?.encodedDataLength,
-        }));
-
-      if (largeResources.length > 0) {
-        bottlenecks.push({
-          type: "large_resources",
-          description: `Found ${largeResources.length} large resources (>500KB)`,
-          details: largeResources,
-        });
-      }
-    }
-
-    return bottlenecks;
-  } catch (error) {
-    logError("performance_trace", "Failed to analyze trace data", error);
-    return [
-      {
-        type: "analysis_error",
-        description: "Failed to analyze performance data",
-        details: error.message,
-      },
-    ];
   }
 }

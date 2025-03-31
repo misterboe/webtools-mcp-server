@@ -4,13 +4,14 @@ import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
 
 /**
- * Debug a webpage by capturing console output, network requests, and errors
+ * Debug a webpage by capturing console output, network requests, errors, and layout thrashing
  * @param {Object} args - The tool arguments
  * @param {string} args.url - The URL to debug
  * @param {boolean} [args.captureConsole=true] - Whether to capture console output
  * @param {boolean} [args.captureNetwork=true] - Whether to capture network requests
  * @param {boolean} [args.captureErrors=true] - Whether to capture JavaScript errors
- * @param {number} [args.timeoutMs=10000] - Timeout in milliseconds
+ * @param {boolean} [args.captureLayoutThrashing=false] - Whether to capture layout thrashing events
+ * @param {number} [args.timeoutMs=15000] - Timeout in milliseconds
  * @param {boolean} [args.useProxy=false] - Whether to use a proxy
  * @param {boolean} [args.ignoreSSLErrors=false] - Whether to ignore SSL errors
  * @param {Object} [args.deviceConfig] - Device configuration for emulation
@@ -29,7 +30,8 @@ export async function debug(args) {
     captureConsole = true,
     captureNetwork = true,
     captureErrors = true,
-    timeoutMs = 10000,
+    captureLayoutThrashing = false,
+    timeoutMs = 15000,
     useProxy = false,
     ignoreSSLErrors = false,
     deviceConfig = {
@@ -101,13 +103,21 @@ export async function debug(args) {
       console: [],
       network: [],
       errors: [],
+      layoutThrashing: [],
       performance: null,
     };
 
-    const browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : "", "--ignore-certificate-errors"].filter(Boolean),
-    });
+    // Launch browser with increased timeout and better error handling
+    const browser = await puppeteer
+      .launch({
+        headless: "new",
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu", useProxy ? `--proxy-server=${process.env.PROXY_URL || ""}` : "", "--ignore-certificate-errors"].filter(Boolean),
+        timeout: timeoutMs * 1.5, // Increase browser launch timeout
+      })
+      .catch((error) => {
+        logError("debug", "Browser launch failed", error);
+        throw new Error(`Browser launch failed: ${error.message}`);
+      });
 
     try {
       const page = await browser.newPage();
@@ -193,16 +203,131 @@ export async function debug(args) {
         }
       });
 
-      // Navigate to the page
-      await page.goto(url, {
-        waitUntil: "networkidle0",
-        timeout: timeoutMs,
+      // Enable CDP session for layout thrashing detection if requested
+      let client;
+      if (captureLayoutThrashing) {
+        client = await page.target().createCDPSession();
+        await client.send("DOM.enable");
+        await client.send("CSS.enable");
+
+        // Track layout operations that might cause thrashing
+        client.on("DOM.documentUpdated", () => {
+          debugData.layoutThrashing.push({
+            type: "DOM.documentUpdated",
+            timestamp: new Date().toISOString(),
+            message: "Document was updated, potentially forcing layout recalculation",
+          });
+        });
+
+        client.on("CSS.styleSheetAdded", () => {
+          debugData.layoutThrashing.push({
+            type: "CSS.styleSheetAdded",
+            timestamp: new Date().toISOString(),
+            message: "Style sheet was added, potentially forcing layout recalculation",
+          });
+        });
+      }
+
+      // Inject layout thrashing detection script if requested
+      if (captureLayoutThrashing) {
+        await page.evaluateOnNewDocument(() => {
+          // Override methods that force layout/reflow
+          const forcedLayoutMethods = ["offsetTop", "offsetLeft", "offsetWidth", "offsetHeight", "clientTop", "clientLeft", "clientWidth", "clientHeight", "getComputedStyle", "getBoundingClientRect", "scrollTop", "scrollLeft"];
+
+          // Track layout thrashing events
+          window.__layoutThrashingEvents = [];
+
+          // Create proxies for Element prototype methods that force layout
+          forcedLayoutMethods.forEach((method) => {
+            if (method === "getComputedStyle") {
+              const original = window.getComputedStyle;
+              window.getComputedStyle = function () {
+                window.__layoutThrashingEvents.push({
+                  method: "getComputedStyle",
+                  timestamp: new Date().toISOString(),
+                  trace: new Error().stack,
+                });
+                return original.apply(this, arguments);
+              };
+            } else if (Element.prototype[method] !== undefined) {
+              const originalGetter = Object.getOwnPropertyDescriptor(Element.prototype, method).get;
+              if (originalGetter) {
+                Object.defineProperty(Element.prototype, method, {
+                  get: function () {
+                    window.__layoutThrashingEvents.push({
+                      method: method,
+                      timestamp: new Date().toISOString(),
+                      trace: new Error().stack,
+                    });
+                    return originalGetter.apply(this);
+                  },
+                });
+              }
+            }
+          });
+        });
+      }
+
+      // Navigate to the page with improved error handling
+      try {
+        await page.goto(url, {
+          waitUntil: "networkidle0",
+          timeout: timeoutMs,
+        });
+      } catch (navigationError) {
+        // If navigation timeout occurs, continue with partial data
+        debugData.errors.push({
+          type: "navigation",
+          message: navigationError.message,
+          timestamp: new Date().toISOString(),
+        });
+
+        logError("debug", "Navigation error but continuing with partial data", navigationError);
+        // Don't throw here, continue with partial data collection
+      }
+
+      // Wait for specified timeout with progress logging
+      const waitStartTime = Date.now();
+      logInfo("debug", "Starting data collection wait period", { timeoutMs });
+
+      // Use a more robust wait mechanism with periodic checks
+      await new Promise((resolve) => {
+        const checkInterval = Math.min(2000, timeoutMs / 5); // Check at most every 2 seconds
+        const intervalId = setInterval(() => {
+          const elapsedTime = Date.now() - waitStartTime;
+          if (elapsedTime >= timeoutMs) {
+            clearInterval(intervalId);
+            resolve();
+          } else {
+            logInfo("debug", "Data collection in progress", {
+              elapsedMs: elapsedTime,
+              remainingMs: timeoutMs - elapsedTime,
+            });
+          }
+        }, checkInterval);
+
+        // Also set a timeout as a fallback
+        setTimeout(() => {
+          clearInterval(intervalId);
+          resolve();
+        }, timeoutMs);
       });
 
-      // Wait for specified timeout
-      await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+      // Collect layout thrashing data if requested
+      if (captureLayoutThrashing) {
+        const layoutThrashingEvents = await page
+          .evaluate(() => {
+            return window.__layoutThrashingEvents || [];
+          })
+          .catch((error) => {
+            logError("debug", "Failed to collect layout thrashing data", error);
+            return [];
+          });
 
-      // Collect performance metrics
+        debugData.layoutThrashing = [...debugData.layoutThrashing, ...layoutThrashingEvents];
+      }
+
+      // Collect performance metrics with better error handling
       debugData.performance = await page.evaluate(() => {
         try {
           performance.mark("debug-end");
@@ -266,6 +391,38 @@ export async function debug(args) {
         "## Errors",
         debugData.errors.length > 0 ? debugData.errors.map((err) => `### ${err.type} Error at ${err.timestamp}\n\`\`\`\n${err.message}\n${err.stack || ""}\n\`\`\``).join("\n") : "- No errors captured",
         "",
+        captureLayoutThrashing
+          ? [
+              "## Layout Thrashing Detection",
+              debugData.layoutThrashing.length > 0
+                ? [
+                    `Detected ${debugData.layoutThrashing.length} potential layout thrashing events:`,
+                    "",
+                    debugData.layoutThrashing
+                      .map((event, index) => {
+                        if (index < 20) {
+                          // Limit to first 20 events to avoid overwhelming output
+                          return `### Event ${index + 1}: ${event.method || event.type}\n- Time: ${event.timestamp}\n${event.trace ? `- Stack Trace:\n\`\`\`\n${event.trace}\n\`\`\`` : ""}${
+                            event.message ? `\n- Message: ${event.message}` : ""
+                          }`;
+                        } else if (index === 20) {
+                          return `\n... and ${debugData.layoutThrashing.length - 20} more events (omitted for brevity)`;
+                        }
+                        return "";
+                      })
+                      .filter(Boolean)
+                      .join("\n\n"),
+                    "",
+                    "### Layout Thrashing Recommendations",
+                    "- Batch DOM reads and writes to avoid forcing layout recalculation",
+                    "- Use requestAnimationFrame for DOM manipulations",
+                    "- Consider using CSS transforms instead of properties that trigger layout",
+                    "- Cache layout values instead of repeatedly querying them",
+                  ].join("\n")
+                : "No layout thrashing events detected",
+              "",
+            ].join("\n")
+          : "",
         "## Performance Metrics",
         debugData.performance.error
           ? `Error collecting performance metrics: ${debugData.performance.error}`

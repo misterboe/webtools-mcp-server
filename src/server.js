@@ -149,7 +149,7 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: "webtool_debug",
-    description: "Debug a webpage by capturing console output, network requests, and errors with custom device emulation",
+    description: "Debug a webpage by capturing console output, network requests, errors, and layout thrashing with custom device emulation",
     inputSchema: {
       type: "object",
       properties: {
@@ -172,10 +172,15 @@ const TOOL_DEFINITIONS = [
           description: "Capture JavaScript errors and exceptions",
           default: true,
         },
+        captureLayoutThrashing: {
+          type: "boolean",
+          description: "Capture layout thrashing events (forced layout/reflow)",
+          default: false,
+        },
         timeoutMs: {
           type: "number",
           description: "How long to collect debug information in milliseconds",
-          default: 10000,
+          default: 15000,
         },
         useProxy: {
           type: "boolean",
@@ -269,7 +274,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "webtool_performance_trace",
     description:
-      "Perform a detailed performance analysis similar to Chrome DevTools Performance panel. Captures CPU profiles, JavaScript execution timelines, network waterfall, rendering performance metrics, and provides specific optimization suggestions.",
+      "Perform a detailed performance analysis with specialized modules for layout thrashing, CSS variables impact, JavaScript execution timeline, long tasks breakdown, memory and DOM growth analysis, and resource loading optimization. Provides actionable recommendations for performance improvements.",
     inputSchema: {
       type: "object",
       properties: {
@@ -316,6 +321,74 @@ const TOOL_DEFINITIONS = [
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
           default: false,
+        },
+        // Analysis module controls
+        analyzeLayoutThrashing: {
+          type: "boolean",
+          description: "Whether to analyze layout thrashing patterns",
+          default: true,
+        },
+        analyzeCssVariables: {
+          type: "boolean",
+          description: "Whether to analyze CSS variables impact",
+          default: true,
+        },
+        analyzeJsExecution: {
+          type: "boolean",
+          description: "Whether to analyze JavaScript execution and its correlation with layout events",
+          default: true,
+        },
+        analyzeLongTasks: {
+          type: "boolean",
+          description: "Whether to analyze long tasks and their attribution",
+          default: true,
+        },
+        analyzeMemoryAndDom: {
+          type: "boolean",
+          description: "Whether to analyze memory usage and DOM growth",
+          default: true,
+        },
+        analyzeResourceLoading: {
+          type: "boolean",
+          description: "Whether to analyze resource loading waterfall",
+          default: true,
+        },
+        // Threshold controls
+        longTaskThresholdMs: {
+          type: "number",
+          description: "Threshold in milliseconds for long tasks detection",
+          default: 50,
+        },
+        layoutThrashingThreshold: {
+          type: "number",
+          description: "Threshold for layout thrashing detection (number of layout operations)",
+          default: 10,
+        },
+        memoryLeakThresholdKb: {
+          type: "number",
+          description: "Threshold in KB/s for memory leak detection",
+          default: 10,
+        },
+        // Output controls
+        detailLevel: {
+          type: "string",
+          description: "Level of detail in the analysis output",
+          enum: ["basic", "detailed", "comprehensive"],
+          default: "detailed",
+        },
+        includeRecommendations: {
+          type: "boolean",
+          description: "Whether to include optimization recommendations in the output",
+          default: true,
+        },
+        // Focus controls
+        focusSelector: {
+          type: "string",
+          description: "CSS selector to focus the analysis on specific DOM elements",
+        },
+        focusTimeRangeMs: {
+          type: "string",
+          description: "Time range in milliseconds to focus the analysis (format: 'start-end', e.g., '0-5000')",
         },
         deviceConfig: {
           type: "object",
@@ -372,11 +445,32 @@ export function createServer() {
   const server = new Server(
     {
       name: "webtools-server",
-      version: "1.4.1",
+      version: "1.5.1",
     },
     {
       capabilities: {
-        tools: {},
+        tools: {
+          performance_analysis: {
+            description: "Advanced performance analysis with specialized modules",
+            features: ["Layout Thrashing Analysis", "CSS Variables Impact Analysis", "JavaScript Execution Timeline", "Long Task Breakdown", "Memory and DOM Growth Analysis", "Resource Loading Optimization"],
+            recommended_parameters: {
+              analyzeLayoutThrashing: true,
+              longTaskThresholdMs: 50,
+              detailLevel: "comprehensive",
+            },
+          },
+          debug: {
+            description: "Comprehensive webpage debugging with console, network, error capture, and layout thrashing detection",
+            features: ["Console Output Capture", "Network Request Monitoring", "JavaScript Error Tracking", "Performance Metrics Collection", "DOM Mutation Tracking", "Layout Thrashing Detection"],
+            recommended_parameters: {
+              captureConsole: true,
+              captureNetwork: true,
+              captureErrors: true,
+              captureLayoutThrashing: true,
+              timeoutMs: 15000,
+            },
+          },
+        },
       },
     }
   );

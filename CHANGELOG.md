@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.5.1] - 2025-03-31
+
+### Added
+
+- Enhanced debug tool with layout thrashing detection
+  - Automatic detection of DOM operations that cause layout thrashing
+  - Stack trace capture for layout thrashing events
+  - Detailed recommendations for fixing layout thrashing issues
+- Improved server capabilities communication
+  - Better description of available tools and features
+  - Recommended parameters for optimal tool usage
+  - More detailed tool documentation
+
+### Improved
+
+- Increased stability for debug tool
+  - Better error handling for navigation failures
+  - Improved timeout handling with progress logging
+  - More robust browser launch process
+- Enhanced client-server communication
+  - More detailed capabilities information
+  - Better parameter documentation
+  - Clearer error messages
+
+## [1.5.0] - 2025-03-31
+
+### Added
+
+- Enhanced performance analysis with specialized modules:
+  - Layout Thrashing Analysis: Detects and visualizes layout thrashing patterns
+  - CSS Variables Impact Analyzer: Tracks CSS variable changes and their cascade effects
+  - JavaScript Execution Timeline: Maps JS functions to layout events
+  - Long Task Breakdown Analyzer: Provides detailed attribution of long tasks
+  - Memory and DOM Size Analyzer: Tracks DOM growth and detects memory leaks
+  - Resource Loading Optimizer: Analyzes resource loading waterfall
+
+### Improved
+
+- Modular architecture for performance analysis tools
+- More detailed performance bottleneck detection
+- Better visualization of performance issues
+- More actionable recommendations for performance optimization
+
 ## [1.4.1] - 2024-03-25
 
 ### Fixed
