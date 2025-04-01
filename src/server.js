@@ -1,6 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { logInfo, logError } from "./utils/logging.js";
 import { checkSiteAvailability } from "./utils/html.js";
 import { fetchWithRetry } from "./utils/fetch.js";
@@ -20,6 +20,9 @@ import { runPerformanceTest } from "./tools/performance/test_framework/index.js"
 import { TOOL_DEFINITIONS } from "./config/tool-definitions.js";
 import { SERVER_CAPABILITIES } from "./config/capabilities.js";
 
+// Import prompts
+import { PROMPT_DEFINITIONS, PROMPT_HANDLERS } from "./prompts/index.js";
+
 /**
  * Create and configure the MCP server
  * @returns {Server} The configured server instance
@@ -29,10 +32,13 @@ export function createServer() {
   const server = new Server(
     {
       name: "webtools-server",
-      version: "1.6.0",
+      version: "1.6.1",
     },
     {
-      capabilities: SERVER_CAPABILITIES,
+      capabilities: {
+        ...SERVER_CAPABILITIES,
+        prompts: {},
+      },
     }
   );
 
@@ -57,6 +63,31 @@ function setupRequestHandlers(server) {
     return {
       tools: TOOL_DEFINITIONS,
     };
+  });
+
+  // List available prompts
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    return {
+      prompts: PROMPT_DEFINITIONS,
+    };
+  });
+
+  // Get prompt by name
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+
+    // Find the appropriate handler for this prompt
+    const promptHandler = PROMPT_HANDLERS[name];
+
+    if (!promptHandler) {
+      throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
+    }
+
+    try {
+      return promptHandler(args);
+    } catch (error) {
+      throw new McpError(ErrorCode.InvalidParams, error.message);
+    }
   });
 
   // Handle tool execution

@@ -11,86 +11,6 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - The server will use Puppeteer's bundled Chrome
   - No need to install Chrome separately
 
-## Changelog
-
-### Version 1.6.0 - Comprehensive Performance Analysis Framework
-
-- 🔍 Complete performance analysis framework with specialized tools:
-  - **Network Monitor**: Detailed network activity and resource loading analysis
-  - **Coverage Analysis**: JavaScript and CSS coverage analysis
-  - **Web Vitals Analysis**: Core Web Vitals metrics and element identification
-  - **Performance Test Framework**: Cross-device and network condition testing
-- 📊 Comparative analysis across devices and network conditions
-- 📱 Configurable device profiles for realistic testing
-- 🌐 Network condition simulation
-- 🧩 Modular architecture for better maintainability
-- 📈 Detailed reporting with actionable recommendations
-
-### Version 1.5.1 - Layout Thrashing Detection & Stability Improvements
-
-- 🔍 Enhanced debug tool with layout thrashing detection
-- 🔄 Improved server capabilities communication
-- 🛠️ Increased stability for debug tool
-- 💬 Enhanced client-server communication
-
-### Version 1.5.0 - Enhanced Performance Analysis
-
-- 🔍 Advanced performance analysis with specialized modules:
-  - **Layout Thrashing Analysis**: Detects and visualizes layout thrashing patterns
-  - **CSS Variables Impact Analyzer**: Tracks CSS variable changes and their cascade effects
-  - **JavaScript Execution Timeline**: Maps JS functions to layout events
-  - **Long Task Breakdown Analyzer**: Provides detailed attribution of long tasks
-  - **Memory and DOM Size Analyzer**: Tracks DOM growth and detects memory leaks
-  - **Resource Loading Optimizer**: Analyzes resource loading waterfall
-- 🧩 Modular architecture for performance analysis tools
-- 📊 More detailed performance bottleneck detection
-- 📈 Better visualization of performance issues
-- 🛠️ More actionable recommendations for performance optimization
-
-### Version 1.4.1 - Chrome Integration Fix
-
-- 🛠️ Fixed Chrome detection and availability issues
-- 🔧 Added automatic Chrome installation via Puppeteer
-- 📚 Updated documentation with Chrome requirements
-- 💬 Improved error messages for better troubleshooting
-
-### Version 1.4.0 - Lighthouse Integration & Documentation Update
-
-- 🔍 Unified Lighthouse-based web auditing system
-- 📊 Support for multiple audit categories in a single request
-- 📱 Device emulation for mobile and desktop
-- 📄 Comprehensive documentation update
-- 🔧 Improved configuration options
-- 🐛 Enhanced error handling and reporting
-
-### Version 1.3.0 - Comprehensive Web Analysis Toolkit
-
-- 🌟 Added Lighthouse integration for web audits
-- 🚀 Support for performance, accessibility, SEO, and best practices audits
-- 🔧 Enhanced configuration options
-- 📊 Improved reporting formats
-- 🔄 Better resource analysis capabilities
-
-### Version 1.2.0 - Debug Enhancement
-
-- 🐛 Added Debug capabilities for web pages
-- 📸 Screenshot functionality improvements
-- 📊 Enhanced error reporting
-
-### Version 1.1.0 - Visual & Content Capture
-
-- 📷 Screenshot capabilities
-- 📄 Basic HTML extraction
-- 📝 Markdown conversion
-- 🔄 Proxy support
-
-### Version 1.0.0 - Initial Release
-
-- 🌐 Initial release
-- 📑 Basic HTML fetching
-- 📚 Page reading functionality
-- ⚠️ Error handling
-
 ## Features
 
 ### Core Tools
@@ -157,6 +77,29 @@ A Model Context Protocol server providing comprehensive web analysis tools inclu
   - Baseline comparison
   - Device-specific recommendations
 
+### MCP Prompts
+
+- `analyze-website`: Comprehensive Website Analysis
+  - Performance, accessibility, SEO, and UX analysis
+  - Device type selection (mobile/desktop)
+  - Detailed recommendations tailored to device type
+  - Complete analysis report with actionable insights
+- `get-website-content`: Content Extraction
+  - Main content extraction from any webpage
+  - Clean markdown conversion
+  - Removal of navigation, ads, and non-essential elements
+  - Preservation of important formatting and structure
+- `screenshot-website`: Screenshot Capture
+  - Visual representation of webpage
+  - Full page capture
+  - Simple URL-based interface
+- `technical-performance-analysis`: Technical Performance Analysis
+  - Detailed technical analysis of performance bottlenecks
+  - Code examples and optimization suggestions
+  - Focus area selection (JavaScript, rendering, resources, network)
+  - Performance metrics with severity assessment
+  - Actionable, code-level recommendations
+
 ## Installation
 
 You can install the package globally:
@@ -180,7 +123,7 @@ You can use this server directly with Claude Desktop by adding it to your config
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.6.0"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@1.6.1"]
     }
   }
 }
@@ -250,8 +193,8 @@ Create a configuration file at `~/.mcp/webtools-mcp-server.config.json`:
       "latency": 100
     },
     "WiFi": {
-      "downloadThroughput": 30000000,
-      "uploadThroughput": 15000000,
+      "downloadThroughput": 10000000,
+      "uploadThroughput": 5000000,
       "latency": 20
     },
     "Fiber": {

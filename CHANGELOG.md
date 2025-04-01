@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.1]
+
+### Added
+
+- MCP Prompts Support für verbesserte Interaktion mit dem Server
+  - Neue Prompt-Definitionen mit modularem Aufbau
+  - analyze-website: Umfassende Website-Analyse mit Device-Auswahl (Desktop/Mobile)
+  - get-website-content: Extraktion und Konvertierung von Website-Inhalten in Markdown
+  - screenshot-website: Einfaches Erstellen von Website-Screenshots
+  - technical-performance-analysis: Detaillierte technische Analyse von Performance-Schwachstellen
+
+### Improved
+
+- Bessere Modularisierung der Prompt-Funktionalität
+- Verbesserte Fehlerbehandlung bei Prompt-Anfragen
+- Detailliertere technische Analyse-Optionen
+- Unterstützung für spezifische Analyse-Schwerpunkte
+
 ## [1.6.0] - 2025-03-31
 
 ### Added
