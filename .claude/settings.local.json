@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(export IGNORE_SSL_ERRORS=true)",
+      "Bash(echo:*)",
+      "Bash(node:*)",
+      "Bash(IGNORE_SSL_ERRORS=true node -e \"\nimport(''./src/config/constants.js'').then(module => {\n  console.log(''SSL_CONFIG mit IGNORE_SSL_ERRORS=true:'', module.SSL_CONFIG);\n}).catch(err => console.error(''Error:'', err));\n\")"
+    ],
+    "deny": []
+  }
+}

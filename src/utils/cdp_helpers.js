@@ -8,7 +8,7 @@ import { applyNetworkConditions } from "../config/network_conditions.js";
 
 /**
  * Enable required CDP domains for performance analysis
- * @param {Object} client - CDP client session
+ * @param {Object} client - CDP client session or Puppeteer page
  * @returns {Promise<void>}
  */
 export async function enableRequiredDomains(client) {
@@ -17,13 +17,65 @@ export async function enableRequiredDomains(client) {
   }
 
   try {
-    // Enable required domains
-    await client.send("Network.enable");
-    await client.send("Page.enable");
-    await client.send("Runtime.enable");
-    await client.send("Performance.enable");
+    // Improved checking and creation of CDP session
+    let cdpClient;
+
+    // Check if we have a Page object or a CDP session
+    if (client.target && typeof client.target === "function") {
+      // It's a Page object, create CDP session
+      try {
+        cdpClient = await client.target().createCDPSession();
+      } catch (e) {
+        // Try fallback method if the first one fails
+        try {
+          cdpClient = await client._client;
+        } catch (innerError) {
+          logError("cdp", "Failed to create CDP session with primary and fallback methods", {
+            primaryError: e.message,
+            fallbackError: innerError.message,
+          });
+          throw new Error(`Failed to create CDP session: ${e.message}. Fallback also failed: ${innerError.message}`);
+        }
+      }
+    } else if (client.send && typeof client.send === "function") {
+      // It's already a CDP session
+      cdpClient = client;
+    } else {
+      throw new Error("Invalid client object: neither a Page nor a CDP session");
+    }
+
+    // Ensure the send method exists
+    if (!cdpClient || typeof cdpClient.send !== "function") {
+      throw new Error("Invalid CDP client object - 'send' method not available");
+    }
+
+    // Enable domains with retry attempts
+    const enableDomain = async (domain) => {
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          await cdpClient.send(`${domain}.enable`);
+          return;
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            logError("cdp", `Failed to enable ${domain} domain after multiple attempts`, error);
+            throw error;
+          }
+          // Short pause before next attempt
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+    };
+
+    // Enable domains with retry attempts
+    await enableDomain("Network");
+    await enableDomain("Page");
+    await enableDomain("Runtime");
+    await enableDomain("Performance");
 
     logInfo("cdp", "Enabled required CDP domains");
+    return cdpClient; // Return valid session for chaining
   } catch (error) {
     logError("cdp", "Failed to enable required CDP domains", error);
     throw error;
@@ -418,12 +470,12 @@ export async function getWebVitals(page) {
 
 /**
  * Configure a CDP session with network conditions and other settings
- * @param {Object} client - CDP client session
+ * @param {Object} client - CDP client session or Puppeteer page
  * @param {Object} options - Configuration options
  * @param {Object} options.networkCondition - Network condition to apply
  * @param {boolean} options.disableCache - Whether to disable browser cache
  * @param {boolean} options.blockImages - Whether to block image loading
- * @returns {Promise<void>}
+ * @returns {Promise<Object>} - The CDP client used
  */
 export async function configureCdpSession(client, options = {}) {
   if (!client) {
@@ -431,26 +483,53 @@ export async function configureCdpSession(client, options = {}) {
   }
 
   try {
-    // Enable required domains
-    await enableRequiredDomains(client);
+    // Use our improved enableRequiredDomains function to get a valid CDP client
+    const cdpClient = await enableRequiredDomains(client);
 
     // Apply network conditions if provided
     if (options.networkCondition) {
-      await applyNetworkConditions(client, options.networkCondition);
-      logInfo("cdp", "Applied network conditions", { networkCondition: options.networkCondition.name });
+      // Add retry logic for applying network conditions
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          await applyNetworkConditions(cdpClient, options.networkCondition);
+          logInfo("cdp", "Applied network conditions", { networkCondition: options.networkCondition.name });
+          break;
+        } catch (error) {
+          retries--;
+          if (retries === 0) {
+            logError("cdp", "Failed to apply network conditions after multiple attempts", error);
+            // Continue without network conditions rather than failing completely
+          }
+          // Short pause before next attempt
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
     }
 
     // Disable cache if requested
     if (options.disableCache) {
-      await client.send("Network.setCacheDisabled", { cacheDisabled: true });
-      logInfo("cdp", "Browser cache disabled");
+      try {
+        await cdpClient.send("Network.setCacheDisabled", { cacheDisabled: true });
+        logInfo("cdp", "Browser cache disabled");
+      } catch (error) {
+        logError("cdp", "Failed to disable browser cache", error);
+        // Continue without disabling cache rather than failing completely
+      }
     }
 
     // Block images if requested
     if (options.blockImages) {
-      await client.send("Network.setBlockedURLs", { urls: ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.svg"] });
-      logInfo("cdp", "Image loading blocked");
+      try {
+        await cdpClient.send("Network.setBlockedURLs", { urls: ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.svg"] });
+        logInfo("cdp", "Image loading blocked");
+      } catch (error) {
+        logError("cdp", "Failed to block images", error);
+        // Continue without blocking images rather than failing completely
+      }
     }
+
+    return cdpClient;
   } catch (error) {
     logError("cdp", "Failed to configure CDP session", error);
     throw error;

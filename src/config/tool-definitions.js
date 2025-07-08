@@ -3,6 +3,8 @@
  * Contains the input schemas and descriptions for all available tools
  */
 
+import { SSL_CONFIG } from "./constants.js";
+
 // Tool definitions
 export const TOOL_DEFINITIONS = [
   {
@@ -28,7 +30,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
       required: ["url"],
@@ -62,7 +64,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
       required: ["url"],
@@ -132,7 +134,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
       required: ["url"],
@@ -221,7 +223,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
       required: ["url"],
@@ -256,7 +258,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
       required: ["url"],
@@ -311,7 +313,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
         // Analysis module controls
         analyzeLayoutThrashing: {
@@ -458,7 +460,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
         disableCache: {
           type: "boolean",
@@ -568,7 +570,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
         networkConditionName: {
           type: "string",
@@ -678,7 +680,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
         includeThirdParty: {
           type: "boolean",
@@ -843,7 +845,7 @@ export const TOOL_DEFINITIONS = [
         ignoreSSLErrors: {
           type: "boolean",
           description: "Whether to ignore SSL certificate errors (use with caution)",
-          default: false,
+          default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
         devices: {
           type: "array",

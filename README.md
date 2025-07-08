@@ -213,6 +213,7 @@ You can also configure the server using environment variables:
 - `USE_PROXY`: Enable proxy support (true/false)
 - `PROXY_URL`: Proxy server URL
 - `PROXY_TIMEOUT`: Proxy timeout in milliseconds
+- `IGNORE_SSL_ERRORS`: Ignore SSL certificate errors by default for all tools (true/false) - useful for development environments like DDEV
 
 ## Tool Usage Examples
 
@@ -469,6 +470,12 @@ Common issues and solutions:
 
 - **Issue**: Cannot connect to website
 - **Solution**: Check URL format, website availability, or try with proxy enabled
+
+### SSL Certificate Issues
+
+- **Issue**: SSL certificate errors with DDEV or local development sites
+- **Solution**: Set `IGNORE_SSL_ERRORS=true` environment variable or use `ignoreSSLErrors=true` parameter for individual tools
+- **Note**: For production sites, ensure proper SSL certificate configuration instead of bypassing SSL checks
 
 ### JavaScript Rendering Issues
 

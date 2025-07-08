@@ -19,3 +19,8 @@ export const PROXY_CONFIG = {
   url: process.env.PROXY_URL || "http://localhost:8888",
   timeout: parseInt(process.env.PROXY_TIMEOUT, 10) || 30000,
 };
+
+// SSL configuration (can be overridden by environment variables)
+export const SSL_CONFIG = {
+  ignoreSSLErrorsByDefault: process.env.IGNORE_SSL_ERRORS === "true",
+};
