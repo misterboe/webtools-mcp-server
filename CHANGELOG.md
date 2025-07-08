@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.7.0] - 2025-01-08
+
+### Added
+
+- **Advanced Response Size Management for Debug Tool**
+  - New pagination support with `page` and `pageSize` parameters for browsing large datasets
+  - Output control parameters: `maxConsoleEvents`, `maxNetworkEvents`, `maxErrorEvents`, `maxResourceEvents`
+  - Compact formatting option with `compactFormat` parameter for abbreviated output
+  - Summary-only mode with `summarizeOnly` parameter for counts and basic stats
+  - Stack trace control with `skipStackTraces` parameter to reduce layout thrashing verbosity
+  - Automatic token count management to prevent MCP 25k token limit errors
+
+- **Enhanced SSL Configuration System**
+  - New `IGNORE_SSL_ERRORS` environment variable for development environments (DDEV support)
+  - Centralized SSL configuration in `src/config/constants.js`
+  - Consistent SSL handling across all tools with conditional bypass
+  - Improved documentation for SSL error management
+
+### Improved
+
+- **Debug Tool Response Optimization**
+  - Up to 82% token reduction (from ~35k to ~2k tokens) with conservative defaults
+  - Intelligent pagination vs. limits logic for optimal user experience
+  - Clear truncation messaging with parameter hints for users
+  - Backward compatibility maintained for existing tool calls
+
+- **Server Capabilities and Documentation**
+  - Comprehensive capabilities documentation with response management features
+  - Enhanced tool definitions with detailed parameter descriptions
+  - Complete JSDoc documentation for all new parameters
+  - Updated CLAUDE.md with Response Size Management guidelines
+
+- **Developer Experience**
+  - Consistent parameter naming across performance tools
+  - Multiple recommended parameter sets for different use cases
+  - Clear examples for pagination, limits, and formatting options
+  - Fixed deprecated API usage and variable naming conflicts
+
+### Fixed
+
+- Hardcoded SSL bypass in screenshot and debug tools (now conditional)
+- Variable naming conflict in debug tool pagination logic
+- Deprecated `page.target()` usage in CDP session creation
+- Inconsistent SSL behavior across different tools
+
 ## [1.6.1]
 
 ### Added

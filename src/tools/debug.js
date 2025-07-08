@@ -4,7 +4,7 @@ import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
 
 /**
- * Debug a webpage by capturing console output, network requests, errors, and layout thrashing
+ * Debug a webpage by capturing console output, network requests, errors, and layout thrashing with advanced response size management
  * @param {Object} args - The tool arguments
  * @param {string} args.url - The URL to debug
  * @param {boolean} [args.captureConsole=true] - Whether to capture console output
@@ -14,6 +14,15 @@ import { fetchWithRetry } from "../utils/fetch.js";
  * @param {number} [args.timeoutMs=15000] - Timeout in milliseconds
  * @param {boolean} [args.useProxy=false] - Whether to use a proxy
  * @param {boolean} [args.ignoreSSLErrors=false] - Whether to ignore SSL errors
+ * @param {number} [args.maxConsoleEvents=20] - Maximum number of console events to include
+ * @param {number} [args.maxNetworkEvents=30] - Maximum number of network events to include
+ * @param {number} [args.maxErrorEvents=10] - Maximum number of error events to include
+ * @param {number} [args.maxResourceEvents=15] - Maximum number of resource timing events to include
+ * @param {boolean} [args.skipStackTraces=false] - Skip stack traces in layout thrashing events
+ * @param {boolean} [args.compactFormat=false] - Use compact format for all sections
+ * @param {boolean} [args.summarizeOnly=false] - Include only summary without detailed event data
+ * @param {number} [args.page=1] - Page number for paginated results (starts at 1)
+ * @param {number} [args.pageSize=20] - Number of events per page for paginated results
  * @param {Object} [args.deviceConfig] - Device configuration for emulation
  * @param {number} [args.deviceConfig.width=1920] - Viewport width in pixels
  * @param {number} [args.deviceConfig.height=1080] - Viewport height in pixels
@@ -22,7 +31,7 @@ import { fetchWithRetry } from "../utils/fetch.js";
  * @param {boolean} [args.deviceConfig.hasTouch=false] - Whether to enable touch events
  * @param {boolean} [args.deviceConfig.isLandscape=false] - Whether to use landscape orientation
  * @param {string} [args.deviceConfig.userAgent] - Custom user agent string
- * @returns {Object} The tool response
+ * @returns {Object} The tool response with managed response size
  */
 export async function debug(args) {
   const {
@@ -34,6 +43,17 @@ export async function debug(args) {
     timeoutMs = 15000,
     useProxy = false,
     ignoreSSLErrors = false,
+    // Output control parameters
+    maxConsoleEvents = 20,
+    maxNetworkEvents = 30,
+    maxErrorEvents = 10,
+    maxResourceEvents = 15,
+    skipStackTraces = false,
+    compactFormat = false,
+    summarizeOnly = false,
+    // Pagination parameters
+    page: pageNumber = 1,
+    pageSize = 20,
     deviceConfig = {
       width: 1920,
       height: 1080,
@@ -206,7 +226,8 @@ export async function debug(args) {
       // Enable CDP session for layout thrashing detection if requested
       let client;
       if (captureLayoutThrashing) {
-        client = await page.target().createCDPSession();
+        const target = page.target();
+        client = await target.createCDPSession();
         await client.send("DOM.enable");
         await client.send("CSS.enable");
 
@@ -374,8 +395,74 @@ export async function debug(args) {
         }
       });
 
+      // Helper function to paginate data
+      function paginateData(data, currentPage, currentPageSize) {
+        const totalPages = Math.ceil(data.length / currentPageSize);
+        const validPage = Math.min(Math.max(1, currentPage), totalPages);
+        const startIndex = (validPage - 1) * currentPageSize;
+        const endIndex = Math.min(startIndex + currentPageSize, data.length);
+        
+        return {
+          data: data.slice(startIndex, endIndex),
+          pagination: {
+            totalItems: data.length,
+            itemsPerPage: currentPageSize,
+            currentPage: validPage,
+            totalPages: totalPages,
+            hasNextPage: validPage < totalPages,
+            hasPreviousPage: validPage > 1,
+          }
+        };
+      }
+
+      // Apply pagination or limits based on parameters
+      const usePagination = pageNumber > 1 || pageSize !== 20; // Use pagination if non-default values
+      
+      let consoleData, networkData, errorData, resourceData;
+      let consolePagination, networkPagination, errorPagination, resourcePagination;
+
+      if (usePagination) {
+        // Use pagination for all sections
+        const consolePaginated = paginateData(debugData.console, pageNumber, pageSize);
+        const networkPaginated = paginateData(debugData.network, pageNumber, pageSize);
+        const errorPaginated = paginateData(debugData.errors, pageNumber, pageSize);
+        const resourcePaginated = paginateData(debugData.performance.resources || [], pageNumber, pageSize);
+        
+        consoleData = consolePaginated.data;
+        networkData = networkPaginated.data;
+        errorData = errorPaginated.data;
+        resourceData = resourcePaginated.data;
+        
+        consolePagination = consolePaginated.pagination;
+        networkPagination = networkPaginated.pagination;
+        errorPagination = errorPaginated.pagination;
+        resourcePagination = resourcePaginated.pagination;
+      } else {
+        // Use max limits (existing behavior)
+        consoleData = debugData.console.slice(0, maxConsoleEvents);
+        networkData = debugData.network.slice(0, maxNetworkEvents);
+        errorData = debugData.errors.slice(0, maxErrorEvents);
+        resourceData = (debugData.performance.resources || []).slice(0, maxResourceEvents);
+      }
+
       // Format the debug data into a readable markdown report
-      const report = [
+      const report = summarizeOnly ? [
+        `# Debug Summary for ${url}`,
+        `Generated at: ${debugData.timestamp}`,
+        "",
+        "## Summary",
+        `- Console Events: ${debugData.console.length}`,
+        `- Network Events: ${debugData.network.length}`,
+        `- Error Events: ${debugData.errors.length}`,
+        `- Layout Thrashing Events: ${debugData.layoutThrashing.length}`,
+        `- Resource Events: ${debugData.performance.resources ? debugData.performance.resources.length : 0}`,
+        "",
+        "## Quick Stats",
+        `- Page Load Time: ${debugData.performance.navigation ? debugData.performance.navigation.loadEventEnd : 'N/A'}ms`,
+        `- DOM Interactive: ${debugData.performance.navigation ? debugData.performance.navigation.domInteractive : 'N/A'}ms`,
+        "",
+        "**Note**: Use summarizeOnly=false to see detailed event data.",
+      ] : [
         `# Debug Report for ${url}`,
         `Generated at: ${debugData.timestamp}`,
         "",
@@ -383,13 +470,46 @@ export async function debug(args) {
         `- Profile: ${JSON.stringify(deviceConfig)}`,
         "",
         "## Console Output",
-        debugData.console.length > 0 ? debugData.console.map((log) => `- [${log.timestamp}] ${log.type.toUpperCase()}: ${log.text}`).join("\n") : "- No console output captured",
+        consoleData.length > 0 ? [
+          consoleData.map((log) => {
+            const logText = compactFormat ? 
+              `${log.type.toUpperCase()}: ${log.text}` : 
+              `[${log.timestamp}] ${log.type.toUpperCase()}: ${log.text}`;
+            return `- ${logText}`;
+          }).join("\n"),
+          usePagination && consolePagination ? 
+            `\n**Console Pagination**: Page ${consolePagination.currentPage} of ${consolePagination.totalPages} (${consolePagination.totalItems} total events)` :
+            (debugData.console.length > maxConsoleEvents ? 
+              `\n... and ${debugData.console.length - maxConsoleEvents} more console events (use maxConsoleEvents parameter to show more)` : "")
+        ].filter(Boolean).join("") : "- No console output captured",
         "",
         "## Network Activity",
-        debugData.network.length > 0 ? debugData.network.map((n) => `- [${n.timestamp}] ${n.type.toUpperCase()} ${n.method || n.status} ${n.url}`).join("\n") : "- No network activity captured",
+        networkData.length > 0 ? [
+          networkData.map((n) => {
+            const networkText = compactFormat ? 
+              `${n.method || n.status} ${n.url.split('/').pop() || n.url}` : 
+              `[${n.timestamp}] ${n.type.toUpperCase()} ${n.method || n.status} ${n.url}`;
+            return `- ${networkText}`;
+          }).join("\n"),
+          usePagination && networkPagination ? 
+            `\n**Network Pagination**: Page ${networkPagination.currentPage} of ${networkPagination.totalPages} (${networkPagination.totalItems} total events)` :
+            (debugData.network.length > maxNetworkEvents ? 
+              `\n... and ${debugData.network.length - maxNetworkEvents} more network events (use maxNetworkEvents parameter to show more)` : "")
+        ].filter(Boolean).join("") : "- No network activity captured",
         "",
         "## Errors",
-        debugData.errors.length > 0 ? debugData.errors.map((err) => `### ${err.type} Error at ${err.timestamp}\n\`\`\`\n${err.message}\n${err.stack || ""}\n\`\`\``).join("\n") : "- No errors captured",
+        errorData.length > 0 ? [
+          errorData.map((err) => {
+            const errorText = compactFormat ? 
+              `### ${err.type} Error\n\`\`\`\n${err.message}\n\`\`\`` : 
+              `### ${err.type} Error at ${err.timestamp}\n\`\`\`\n${err.message}\n${err.stack || ""}\n\`\`\``;
+            return errorText;
+          }).join("\n"),
+          usePagination && errorPagination ? 
+            `\n**Error Pagination**: Page ${errorPagination.currentPage} of ${errorPagination.totalPages} (${errorPagination.totalItems} total events)` :
+            (debugData.errors.length > maxErrorEvents ? 
+              `\n... and ${debugData.errors.length - maxErrorEvents} more error events (use maxErrorEvents parameter to show more)` : "")
+        ].filter(Boolean).join("") : "- No errors captured",
         "",
         captureLayoutThrashing
           ? [
@@ -402,7 +522,7 @@ export async function debug(args) {
                       .map((event, index) => {
                         if (index < 20) {
                           // Limit to first 20 events to avoid overwhelming output
-                          return `### Event ${index + 1}: ${event.method || event.type}\n- Time: ${event.timestamp}\n${event.trace ? `- Stack Trace:\n\`\`\`\n${event.trace}\n\`\`\`` : ""}${
+                          return `### Event ${index + 1}: ${event.method || event.type}\n- Time: ${event.timestamp}\n${event.trace && !skipStackTraces ? `- Stack Trace:\n\`\`\`\n${event.trace}\n\`\`\`` : ""}${
                             event.message ? `\n- Message: ${event.message}` : ""
                           }`;
                         } else if (index === 20) {
@@ -433,7 +553,18 @@ export async function debug(args) {
               `- DOM Interactive: ${debugData.performance.navigation.domInteractive}ms`,
               "",
               "### Resource Loading",
-              debugData.performance.resources.length > 0 ? debugData.performance.resources.map((r) => `- ${r.name}: ${r.duration}ms (${(r.transferSize / 1024).toFixed(2)}KB)`).join("\n") : "- No resource timing data available",
+              resourceData.length > 0 ? [
+                resourceData.map((r) => {
+                  const resourceText = compactFormat ? 
+                    `- ${r.name.split('/').pop()}: ${r.duration}ms` : 
+                    `- ${r.name}: ${r.duration}ms (${(r.transferSize / 1024).toFixed(2)}KB)`;
+                  return resourceText;
+                }).join("\n"),
+                usePagination && resourcePagination ? 
+                  `\n**Resource Pagination**: Page ${resourcePagination.currentPage} of ${resourcePagination.totalPages} (${resourcePagination.totalItems} total resources)` :
+                  ((debugData.performance.resources || []).length > maxResourceEvents ? 
+                    `\n... and ${(debugData.performance.resources || []).length - maxResourceEvents} more resources (use maxResourceEvents parameter to show more)` : "")
+              ].filter(Boolean).join("") : "- No resource timing data available",
             ].join("\n"),
       ].join("\n");
 

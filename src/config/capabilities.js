@@ -299,15 +299,87 @@ Konkrete Lösungsvorschläge mit Erklärung der Verbesserungen.
       },
     },
     debug: {
-      description: "Comprehensive webpage debugging with console, network, error capture, and layout thrashing detection",
-      features: ["Console Output Capture", "Network Request Monitoring", "JavaScript Error Tracking", "Performance Metrics Collection", "DOM Mutation Tracking", "Layout Thrashing Detection"],
-      recommended_parameters: {
-        captureConsole: true,
-        captureNetwork: true,
-        captureErrors: true,
-        captureLayoutThrashing: true,
-        timeoutMs: 15000,
+      description: "Comprehensive webpage debugging with console, network, error capture, layout thrashing detection, and advanced response size management",
+      features: [
+        "Console Output Capture with Filtering",
+        "Network Request Monitoring with Pagination", 
+        "JavaScript Error Tracking with Limits",
+        "Performance Metrics Collection", 
+        "DOM Mutation Tracking",
+        "Layout Thrashing Detection with Stack Trace Control",
+        "Response Size Management (Token Limits)",
+        "Pagination Support for Large Datasets",
+        "Compact Output Formatting",
+        "Summary-Only Mode"
+      ],
+      response_management: {
+        description: "Advanced controls to manage response size and stay within MCP 25k token limits",
+        features: {
+          pagination: {
+            description: "Browse through large datasets page by page",
+            parameters: {
+              page: "Page number (starts at 1)",
+              pageSize: "Number of events per page (default: 20)"
+            },
+            example: "page=2, pageSize=15 shows events 16-30 for all sections"
+          },
+          output_limits: {
+            description: "Limit number of events per section when not using pagination",
+            parameters: {
+              maxConsoleEvents: "Maximum console events (default: 20)",
+              maxNetworkEvents: "Maximum network events (default: 30)", 
+              maxErrorEvents: "Maximum error events (default: 10)",
+              maxResourceEvents: "Maximum resource timing events (default: 15)"
+            }
+          },
+          formatting_options: {
+            description: "Control output verbosity and format",
+            parameters: {
+              compactFormat: "Use abbreviated output format (default: false)",
+              summarizeOnly: "Show only counts and basic stats (default: false)",
+              skipStackTraces: "Skip stack traces in layout thrashing (default: false)"
+            }
+          }
+        },
+        token_management: {
+          description: "Automatic token count management to prevent MCP response size errors",
+          default_behavior: "Conservative defaults prevent token overflow while preserving debug functionality",
+          pagination_vs_limits: "Pagination overrides max limits for consistent browsing experience"
+        }
       },
+      recommended_parameters: {
+        basic_debugging: {
+          captureConsole: true,
+          captureNetwork: true,
+          captureErrors: true,
+          captureLayoutThrashing: true,
+          timeoutMs: 15000
+        },
+        large_sites: {
+          captureConsole: true,
+          captureNetwork: true,
+          captureErrors: true,
+          captureLayoutThrashing: true,
+          compactFormat: true,
+          maxNetworkEvents: 20,
+          maxConsoleEvents: 15,
+          timeoutMs: 20000
+        },
+        pagination_browsing: {
+          captureConsole: true,
+          captureNetwork: true,
+          captureErrors: true,
+          page: 1,
+          pageSize: 25,
+          timeoutMs: 15000
+        }
+      },
+      use_cases: {
+        initial_debugging: "Use default parameters for first overview",
+        large_applications: "Use compactFormat=true and reduced maxEvents for very active sites",
+        detailed_analysis: "Use pagination to browse through all events systematically",
+        quick_overview: "Use summarizeOnly=true for just counts and basic metrics"
+      }
     },
   },
 };

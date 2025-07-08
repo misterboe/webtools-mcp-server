@@ -142,6 +142,19 @@ The server includes a sophisticated performance analysis system with multiple sp
 - Enable specific analysis modules based on investigation needs
 - Check for JavaScript errors that might affect performance metrics
 
+### Response Size Management
+- **Token Limits**: Debug tool responses are limited to 25k tokens (MCP protocol limit)
+- **Pagination**: Use `page` and `pageSize` parameters to browse through large datasets
+  - `page=1` (default): Start with first page
+  - `pageSize=20` (default): Number of events per page
+  - Example: `page=2, pageSize=10` shows events 11-20
+- **Output Control Parameters**: Use `maxConsoleEvents`, `maxNetworkEvents`, `maxErrorEvents`, `maxResourceEvents` to limit output size
+- **Compact Mode**: Use `compactFormat=true` for abbreviated output format
+- **Summary Mode**: Use `summarizeOnly=true` for only counts and basic stats
+- **Stack Traces**: Use `skipStackTraces=true` to reduce layout thrashing verbosity
+- **Default Limits**: Conservative defaults (Console: 20, Network: 30, Errors: 10, Resources: 15) prevent token overflow
+- **Pagination vs Limits**: When using pagination (`page` or `pageSize`), it overrides max limits for consistent paging
+
 ### Network Issues
 - Proxy support is available but should be used responsibly
 - Network conditions can be simulated for testing

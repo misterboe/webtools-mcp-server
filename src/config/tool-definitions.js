@@ -142,7 +142,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: "webtool_debug",
-    description: "Debug a webpage by capturing console output, network requests, errors, and layout thrashing with custom device emulation",
+    description: "Debug a webpage by capturing console output, network requests, errors, and layout thrashing with custom device emulation. Includes advanced response size management with pagination, output limits, and compact formatting to stay within MCP token limits.",
     inputSchema: {
       type: "object",
       properties: {
@@ -219,6 +219,53 @@ export const TOOL_DEFINITIONS = [
               description: "Custom user agent string",
             },
           },
+        },
+        // Output control parameters to manage response size
+        maxConsoleEvents: {
+          type: "number",
+          description: "Maximum number of console events to include in the response",
+          default: 20,
+        },
+        maxNetworkEvents: {
+          type: "number",
+          description: "Maximum number of network events to include in the response",
+          default: 30,
+        },
+        maxErrorEvents: {
+          type: "number",
+          description: "Maximum number of error events to include in the response",
+          default: 10,
+        },
+        maxResourceEvents: {
+          type: "number",
+          description: "Maximum number of resource timing events to include in the response",
+          default: 15,
+        },
+        skipStackTraces: {
+          type: "boolean",
+          description: "Skip stack traces in layout thrashing events to reduce response size",
+          default: false,
+        },
+        compactFormat: {
+          type: "boolean",
+          description: "Use compact format for all sections to reduce response size",
+          default: false,
+        },
+        summarizeOnly: {
+          type: "boolean",
+          description: "Include only summary and counts without detailed event data",
+          default: false,
+        },
+        // Pagination parameters for large datasets
+        page: {
+          type: "number",
+          description: "Page number for paginated results (starts at 1)",
+          default: 1,
+        },
+        pageSize: {
+          type: "number",
+          description: "Number of events per page for paginated results",
+          default: 20,
         },
         ignoreSSLErrors: {
           type: "boolean",
