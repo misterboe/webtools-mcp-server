@@ -29,7 +29,7 @@ export const TOOL_DEFINITIONS = [
         },
         ignoreSSLErrors: {
           type: "boolean",
-          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          description: "Whether to ignore SSL certificate errors (default: true for development convenience)",
           default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
@@ -63,7 +63,7 @@ export const TOOL_DEFINITIONS = [
         },
         ignoreSSLErrors: {
           type: "boolean",
-          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          description: "Whether to ignore SSL certificate errors (default: true for development convenience)",
           default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
@@ -133,7 +133,7 @@ export const TOOL_DEFINITIONS = [
         },
         ignoreSSLErrors: {
           type: "boolean",
-          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          description: "Whether to ignore SSL certificate errors (default: true for development convenience)",
           default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
@@ -269,7 +269,7 @@ export const TOOL_DEFINITIONS = [
         },
         ignoreSSLErrors: {
           type: "boolean",
-          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          description: "Whether to ignore SSL certificate errors (default: true for development convenience)",
           default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },
@@ -304,7 +304,7 @@ export const TOOL_DEFINITIONS = [
         },
         ignoreSSLErrors: {
           type: "boolean",
-          description: "Whether to ignore SSL certificate errors (use with caution, only for trusted sites)",
+          description: "Whether to ignore SSL certificate errors (default: true for development convenience)",
           default: SSL_CONFIG.ignoreSSLErrorsByDefault,
         },
       },

@@ -22,5 +22,5 @@ export const PROXY_CONFIG = {
 
 // SSL configuration (can be overridden by environment variables)
 export const SSL_CONFIG = {
-  ignoreSSLErrorsByDefault: process.env.IGNORE_SSL_ERRORS === "true",
+  ignoreSSLErrorsByDefault: process.env.IGNORE_SSL_ERRORS !== "false",
 };
