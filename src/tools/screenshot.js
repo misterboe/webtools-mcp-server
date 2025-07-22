@@ -2,6 +2,7 @@ import { logInfo, logError } from "../utils/logging.js";
 import { BROWSER_HEADERS } from "../config/constants.js";
 import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
+import { getDeviceConfig } from "../config/devices.js";
 import sharp from "sharp";
 
 /**
@@ -56,7 +57,6 @@ export async function screenshot(args) {
     url,
     selector,
     useProxy = false,
-    deviceConfig,
     ignoreSSLErrors = false,
     compression = {
       maxWidth: 1920,
@@ -65,6 +65,9 @@ export async function screenshot(args) {
       format: "jpeg",
     },
   } = args;
+  
+  // ✨ Use strong device defaults with validation
+  const deviceConfig = getDeviceConfig(args);
   let puppeteer;
 
   try {
@@ -124,31 +127,19 @@ export async function screenshot(args) {
       const page = await browser.newPage();
       await page.setExtraHTTPHeaders(BROWSER_HEADERS);
 
-      if (deviceConfig) {
-        // Set viewport with device configuration
-        await page.setViewport({
-          width: deviceConfig.width || 1280,
-          height: deviceConfig.height || 800,
-          deviceScaleFactor: deviceConfig.deviceScaleFactor || 1,
-          isMobile: deviceConfig.isMobile || false,
-          hasTouch: deviceConfig.hasTouch || false,
-          isLandscape: deviceConfig.isLandscape || false,
-        });
+      // Set viewport with strong validated defaults
+      await page.setViewport({
+        width: deviceConfig.width,
+        height: deviceConfig.height,
+        deviceScaleFactor: deviceConfig.deviceScaleFactor,
+        isMobile: deviceConfig.isMobile,
+        hasTouch: deviceConfig.hasTouch,
+        isLandscape: deviceConfig.isLandscape,
+      });
 
-        // Set custom user agent if provided
-        if (deviceConfig.userAgent) {
-          await page.setUserAgent(deviceConfig.userAgent);
-        }
-      } else {
-        // Default desktop viewport
-        await page.setViewport({
-          width: 1280,
-          height: 800,
-          deviceScaleFactor: 1,
-          isMobile: false,
-          hasTouch: false,
-          isLandscape: false,
-        });
+      // Set custom user agent if provided
+      if (deviceConfig.userAgent) {
+        await page.setUserAgent(deviceConfig.userAgent);
       }
 
       await page.setDefaultNavigationTimeout(45000);

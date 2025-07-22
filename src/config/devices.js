@@ -116,7 +116,7 @@ export function getDeviceConfig(args) {
     return validateDeviceConfig(args.deviceConfig);
   }
 
-  // Default to desktop
+  // Default to desktop first (better for performance analysis)
   return PREDEFINED_DEVICES["Desktop (1920x1080)"];
 }
 

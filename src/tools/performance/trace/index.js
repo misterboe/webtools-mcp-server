@@ -3,6 +3,7 @@ import { BROWSER_HEADERS } from "../../../config/constants.js";
 import { checkSiteAvailability } from "../../../utils/html.js";
 import { fetchWithRetry } from "../../../utils/fetch.js";
 import { analyzeTraceData } from "../analysis/index.js";
+import { getDeviceConfig } from "../../../config/devices.js";
 import fs from "fs";
 import path from "path";
 
@@ -32,16 +33,10 @@ export async function performanceTrace(args) {
     captureMemoryProfile = false,
     useProxy = false,
     ignoreSSLErrors = false,
-    deviceConfig = {
-      width: 1920,
-      height: 1080,
-      deviceScaleFactor: 1,
-      isMobile: false,
-      hasTouch: false,
-      isLandscape: false,
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    },
   } = args;
+  
+  // ✨ Use strong device defaults with validation
+  const deviceConfig = getDeviceConfig(args);
 
   let puppeteer;
   let browser;

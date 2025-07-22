@@ -2,6 +2,7 @@ import { logInfo, logError } from "../utils/logging.js";
 import { BROWSER_HEADERS } from "../config/constants.js";
 import { checkSiteAvailability } from "../utils/html.js";
 import { fetchWithRetry } from "../utils/fetch.js";
+import { getDeviceConfig } from "../config/devices.js";
 
 /**
  * Debug a webpage by capturing console output, network requests, errors, and layout thrashing with advanced response size management
@@ -54,16 +55,10 @@ export async function debug(args) {
     // Pagination parameters
     page: pageNumber = 1,
     pageSize = 20,
-    deviceConfig = {
-      width: 1920,
-      height: 1080,
-      deviceScaleFactor: 1,
-      isMobile: false,
-      hasTouch: false,
-      isLandscape: false,
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    },
   } = args;
+  
+  // ✨ Use strong device defaults with validation
+  const deviceConfig = getDeviceConfig(args);
   let puppeteer;
 
   try {
