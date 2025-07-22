@@ -1,6 +1,6 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError, ListPromptsRequestSchema, GetPromptRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { logInfo, logError } from "./utils/logging.js";
 import { checkSiteAvailability } from "./utils/html.js";
 import { fetchWithRetry } from "./utils/fetch.js";
@@ -19,9 +19,28 @@ import { runPerformanceTest } from "./tools/performance/test_framework/index.js"
 // Import configurations
 import { TOOL_DEFINITIONS } from "./config/tool-definitions.js";
 import { SERVER_CAPABILITIES } from "./config/capabilities.js";
+import { ResourceConfigManager } from "./config/resource-configs.js";
 
 // Import prompts
 import { PROMPT_DEFINITIONS, PROMPT_HANDLERS } from "./prompts/index.js";
+
+// Import resource management system
+import { createResourceManager } from "./utils/resource-manager.js";
+
+// Dynamic resource storage
+const dynamicResources = new Map();
+
+// Initialize resource management system
+const resourceManager = createResourceManager(dynamicResources);
+const configManager = new ResourceConfigManager().loadPreset('ALL_ENABLED');
+
+// Configure resource handling for all tools
+for (const [toolName, config] of Object.entries(configManager.getConfig())) {
+  if (config.enabled) {
+    resourceManager.enableForTool(toolName, config);
+    logInfo("resource", `🚀 Resource support enabled for tool: ${toolName}`);
+  }
+}
 
 /**
  * Create and configure the MCP server
@@ -38,6 +57,7 @@ export function createServer() {
       capabilities: {
         ...SERVER_CAPABILITIES,
         prompts: {},
+        resources: {},
       },
     }
   );
@@ -133,42 +153,32 @@ function setupRequestHandlers(server) {
         }
       }
 
-      // Execute the appropriate tool
+      // Execute tool with automatic resource handling
       let result;
-      switch (name) {
-        case "webtool_gethtml":
-          result = await getHtml(args);
-          break;
-        case "webtool_readpage":
-          result = await readPage(args);
-          break;
-        case "webtool_screenshot":
-          result = await screenshot(args);
-          break;
-        case "webtool_debug":
-          result = await debug(args);
-          break;
-        case "webtool_lighthouse":
-          result = await runLighthouse(args);
-          break;
-        case "webtool_performance_trace":
-          result = await performanceTrace(args);
-          break;
-        case "webtool_coverage_analysis":
-          result = await runCoverageAnalysis(args);
-          break;
-        case "webtool_web_vitals":
-          result = await runWebVitalsAnalysis(args);
-          break;
-        case "webtool_network_monitor":
-          result = await runNetworkMonitor(args);
-          break;
-        case "webtool_performance_test":
-          result = await runPerformanceTest(args);
-          break;
-        default:
-          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+      
+      // Map tool names to their handler functions
+      const toolHandlers = {
+        "webtool_gethtml": getHtml,
+        "webtool_readpage": readPage,
+        "webtool_screenshot": screenshot,
+        "webtool_debug": debug,
+        "webtool_lighthouse": runLighthouse,
+        "webtool_performance_trace": performanceTrace,
+        "webtool_coverage_analysis": runCoverageAnalysis,
+        "webtool_web_vitals": runWebVitalsAnalysis,
+        "webtool_network_monitor": runNetworkMonitor,
+        "webtool_performance_test": runPerformanceTest
+      };
+
+      // Get the tool handler
+      const toolHandler = toolHandlers[name];
+      if (!toolHandler) {
+        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
       }
+
+      // Execute tool and process result through resource manager
+      const toolResult = await toolHandler(args);
+      result = await resourceManager.processToolResult(name, args, toolResult);
 
       logInfo("tool", "Tool execution completed successfully", {
         tool: name,
@@ -202,7 +212,71 @@ function setupRequestHandlers(server) {
       };
     }
   });
+
+  // List available resources
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    // Only dynamic resources created by tool calls
+    const dynamicResourceList = Array.from(dynamicResources.values()).map(resource => ({
+      uri: resource.uri,
+      name: resource.name,
+      description: resource.description,
+      mimeType: resource.mimeType
+    }));
+    
+    logInfo("resource", "Listing resources", { 
+      dynamicCount: dynamicResourceList.length 
+    });
+
+    return {
+      resources: dynamicResourceList
+    };
+  });
+
+  // Read resource content
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const { uri } = request.params;
+    
+    try {
+      // Check if this is a dynamic resource
+      if (dynamicResources.has(uri)) {
+        const resource = dynamicResources.get(uri);
+        logInfo("resource", "Reading dynamic resource", { 
+          uri, 
+          size: resource.content.length,
+          mimeType: resource.mimeType 
+        });
+        
+        return {
+          contents: [{
+            uri: uri,
+            mimeType: resource.mimeType,
+            text: resource.content
+          }]
+        };
+      }
+
+      // Resource not found
+      throw new Error(`Resource not found: ${uri}. Use webtool_gethtml to load a page first.`);
+      
+    } catch (error) {
+      logError("resource", "Failed to read resource", error, { uri });
+      
+      throw new McpError(
+        ErrorCode.InternalError, 
+        `Failed to read resource: ${error.message}`
+      );
+    }
+  });
 }
+
+
+// Note: The old getHtmlWithResources function has been replaced by the 
+// generic ResourceManager system. All tools now automatically get 
+// resource capabilities through the middleware pattern.
+
+// Note: The old resource content extraction functions have been moved to 
+// the ResourceManager system. Complex content processing can now be handled
+// through custom content adapters if needed in the future.
 
 /**
  * Start the server with the specified transport
@@ -215,6 +289,14 @@ export async function startServer(server) {
 
   logInfo("server", "Server running", {
     transport: "stdio",
+  });
+  
+  // Log resource management status
+  const summary = configManager.getConfigSummary();
+  logInfo("resource", "🎯 Resource Management System Active", {
+    enabledTools: summary.enabledCount,
+    totalTools: summary.totalTools,
+    tools: summary.enabledTools
   });
 
   // Handle graceful shutdown

@@ -382,4 +382,53 @@ Konkrete Lösungsvorschläge mit Erklärung der Verbesserungen.
       }
     },
   },
+  resources: {
+    html_content: {
+      description: "Smart HTML content delivery via MCP Resources for handling large web pages",
+      features: [
+        "Lazy loading - Content only fetched when requested",
+        "Selective content - Summary, main content, structured data, or full page",
+        "Size management - Automatic handling of large pages with truncation warnings",
+        "Memory efficient - No pre-loading of large content"
+      ],
+      resource_types: {
+        summary: {
+          uri_template: "html://{url}/summary",
+          description: "Page title, meta description, and key section headings",
+          typical_size: "1-3k characters",
+          use_case: "Quick overview and navigation"
+        },
+        main_content: {
+          uri_template: "html://{url}/main-content", 
+          description: "Main article content without navigation/sidebars",
+          typical_size: "10-30k characters",
+          use_case: "Focus on primary content, size-optimized"
+        },
+        structured_data: {
+          uri_template: "html://{url}/structured-data",
+          description: "Headings, lists, tables, code blocks only",
+          typical_size: "5-15k characters", 
+          use_case: "Document structure analysis"
+        },
+        full_page: {
+          uri_template: "html://{url}/full-page",
+          description: "Complete page content with size management",
+          typical_size: "Variable, with 40k character soft limit",
+          use_case: "Complete content when size permits"
+        }
+      },
+      advantages: {
+        token_efficiency: "Client selects only needed content sections",
+        memory_efficiency: "Large pages don't consume memory until accessed",
+        client_control: "LLM/client decides what content to load and when",
+        scalability: "Handles arbitrarily large pages through selective loading"
+      },
+      usage_workflow: [
+        "1. Client requests available resources (shows summary info)",
+        "2. Client selects appropriate resource based on needs",
+        "3. Only selected content is fetched and processed",
+        "4. Large content handled with warnings and truncation info"
+      ]
+    }
+  },
 };
