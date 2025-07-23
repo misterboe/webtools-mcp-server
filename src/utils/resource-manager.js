@@ -294,7 +294,7 @@ export class ResourceManager {
      * Enhance response content with detailed resource information
      */
     enhanceContentWithResourceInfo(originalContent, resources, config) {
-        if (!config.enhanceResponse) {
+        if (!config.enhanceResponse && !config.replaceWithSummary) {
             return originalContent;
         }
 
@@ -325,8 +325,12 @@ ${resourceInfo}
 
 🔍 **Resources available for analysis** - Use the resource URIs above to access the complete content.`;
 
-        // Insert enhanced info at the beginning or replace if configured
-        if (originalContent && originalContent.length > 0) {
+        // Insert enhanced info at the beginning, append to existing content, or replace entirely
+        if (config.replaceWithSummary) {
+            // Replace original content entirely with just the summary
+            return [{ type: 'text', text: enhancedText }];
+        } else if (originalContent && originalContent.length > 0) {
+            // Append summary before original content
             return [
                 { type: 'text', text: enhancedText },
                 ...originalContent
@@ -629,6 +633,11 @@ export class ResourceConfigBuilder {
 
     enhanceResponse(enhance = true) {
         this.config.enhanceResponse = enhance;
+        return this;
+    }
+    
+    replaceWithSummary(replace = true) {
+        this.config.replaceWithSummary = replace;
         return this;
     }
 

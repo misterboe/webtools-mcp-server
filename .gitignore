@@ -24,6 +24,7 @@ pids
 
 # Testing
 coverage/
+.tests/tmp/
 
 # Production build
 dist/

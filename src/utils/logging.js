@@ -5,6 +5,10 @@
  * @param {Object} data - Optional data to include in the log
  */
 export function logInfo(category, message, data = {}) {
+  if (process.env.LOG_LEVEL === 'silent') {
+    return;
+  }
+  
   console.error(
     JSON.stringify(
       {
@@ -28,6 +32,10 @@ export function logInfo(category, message, data = {}) {
  * @param {Object} data - Optional data to include in the log
  */
 export function logError(category, message, error = null, data = {}) {
+  if (process.env.LOG_LEVEL === 'silent') {
+    return;
+  }
+  
   console.error(
     JSON.stringify(
       {

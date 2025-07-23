@@ -10,7 +10,8 @@ This is a Model Context Protocol (MCP) server that provides comprehensive web an
 
 ### Development Commands
 - `npm start` - Start the MCP server
-- `npm test` - Run tests (currently not implemented)
+- `npm test` - Run tests
+- `npm run inspect` - Start MCP Inspector for debugging and testing tools
 - `npm install` - Install dependencies
 - `node src/index.js` - Direct server execution
 
@@ -87,6 +88,11 @@ The server includes a sophisticated performance analysis system with multiple sp
 
 ## Development Guidelines
 
+### General Rules
+- **NEVER use hardcoded URLs** in code, tests, or documentation (e.g., never hardcode specific domain names like `zg-raiffeisen-24.ddev.site`)
+- Always use environment variables, configuration files, or generic examples for URLs
+- Use placeholder domains like `example.com` or `your-domain.com` in documentation
+
 ### Tool Development
 - Tools follow a consistent pattern with input validation and error handling
 - All tools support device emulation via `deviceConfig` parameter
@@ -123,6 +129,12 @@ The server includes a sophisticated performance analysis system with multiple sp
 - Test with various device configurations and network conditions
 - Validate performance analysis results against Chrome DevTools
 - Test proxy configurations when available
+
+### MCP Inspector
+- Use `npm run inspect` to start the MCP Inspector for debugging
+- The inspector provides a web interface to test tools, view resources, and debug MCP communication
+- Access the inspector at the URL provided in the console output (typically http://localhost:6274)
+- Use the session token for authentication or set `DANGEROUSLY_OMIT_AUTH=true` to disable auth
 
 ## Common Issues
 

@@ -9,7 +9,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest --dir .tests",
+    "inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
   },
   "keywords": [
     "mcp",
@@ -36,7 +37,11 @@
     "lighthouse": "^12.4.0",
     "node-fetch": "^3.3.2",
     "puppeteer": "^22.8.2",
-    "turndown": "^7.1.2",
-    "sharp": "^0.33.2"
+    "sharp": "^0.33.2",
+    "turndown": "^7.1.2"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.0",
+    "vitest": "^3.2.4"
   }
 }
