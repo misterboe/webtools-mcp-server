@@ -36,6 +36,7 @@ export const WEB_TOOLS_CONFIG = {
             nameTemplate: '{urlForDisplay} - Page Content ({timestamp})',
             descriptionTemplate: 'Markdown content from {fullUrl}{urlPath} processed at {timestamp}'
         })
+        .replaceWithSummary(true)
         .build()
 };
 

@@ -8,7 +8,7 @@ import fs from 'fs/promises';
 
 dotenv.config({ path: path.join(process.cwd(), '.tests', '.env') });
 
-describe('webtool_gethtml', () => {
+describe('webtool_readpage', () => {
   let client;
   let transport;
   let serverProcess;
@@ -49,17 +49,18 @@ describe('webtool_gethtml', () => {
     }
   });
 
-  it('should fetch HTML content from TEST_URL with JavaScript execution and create resources', async () => {
+  it('should fetch page content in Markdown format with JavaScript execution and create resources', async () => {
     const testUrl = process.env.TEST_URL;
     expect(testUrl).toBeDefined();
 
     // 1. Test the tool call with JavaScript execution
     const result = await client.callTool({
-      name: 'webtool_gethtml',
+      name: 'webtool_readpage',
       arguments: {
         url: testUrl,
         ignoreSSLErrors: true,
-        useJavaScript: true
+        useJavaScript: true,
+        selector: 'body'
       }
     });
 
@@ -76,7 +77,7 @@ describe('webtool_gethtml', () => {
     // 2. Create structured temp directory and save server response
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const testDate = timestamp.split('T')[0]; // Get YYYY-MM-DD part
-    const testDir = path.join('.tests', 'tmp', 'webtool_gethtml', testDate);
+    const testDir = path.join('.tests', 'tmp', 'webtool_readpage', testDate);
     await fs.mkdir(testDir, { recursive: true });
     
     const responseFile = path.join(testDir, `server-response-${timestamp}.json`);
@@ -109,17 +110,26 @@ describe('webtool_gethtml', () => {
     expect(Array.isArray(resourceContent.contents)).toBe(true);
     expect(resourceContent.contents.length).toBeGreaterThan(0);
 
-    // 6. Save resource content to structured directory
+    // 6. Validate that it's markdown content
+    const content = resourceContent.contents[0];
+    expect(content.uri).toBeDefined();
+    expect(content.mimeType).toBe('text/markdown');
+    
+    // Basic markdown validation - should contain markdown elements
+    const markdownText = content.text;
+    expect(markdownText).toBeDefined();
+    expect(typeof markdownText).toBe('string');
+    expect(markdownText.length).toBeGreaterThan(0);
+
+    // 7. Save resource content to structured directory
     const resourceFile = path.join(testDir, `resource-content-${timestamp}.json`);
     await fs.writeFile(resourceFile, JSON.stringify(resourceContent, null, 2));
 
-    // If it's HTML content, also save the raw HTML
-    if (resourceContent.contents[0].type === 'text' && resourceContent.contents[0].text.includes('<html')) {
-      const htmlFile = path.join(testDir, `resource-content-${timestamp}.html`);
-      await fs.writeFile(htmlFile, resourceContent.contents[0].text);
-    }
+    // Save the raw markdown content
+    const markdownFile = path.join(testDir, `content-${timestamp}.md`);
+    await fs.writeFile(markdownFile, markdownText);
 
-    // 7. Save resources list to structured directory
+    // 8. Save resources list to structured directory
     const resourcesListFile = path.join(testDir, `resources-list-${timestamp}.json`);
     await fs.writeFile(resourcesListFile, JSON.stringify(resources, null, 2));
 
