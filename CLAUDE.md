@@ -93,6 +93,12 @@ The server includes a sophisticated performance analysis system with multiple sp
 - Always use environment variables, configuration files, or generic examples for URLs
 - Use placeholder domains like `example.com` or `your-domain.com` in documentation
 
+### Git and Release Guidelines
+- **NEVER include Claude attribution** in commit messages (no "Generated with Claude Code" or "Co-Authored-By: Claude")
+- Keep commit messages clean and professional
+- Follow conventional commit format when creating releases
+- Update CHANGELOG.md with meaningful descriptions of changes
+
 ### Tool Development
 - Tools follow a consistent pattern with input validation and error handling
 - All tools support device emulation via `deviceConfig` parameter

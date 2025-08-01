@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.7.1] - 2025-08-01
+
+### Added
+
+- **Comprehensive Testing Framework**
+  - Added complete test suite for webtool_readpage functionality
+  - Improved test file organization with modular structure
+  - Enhanced test coverage for resource response optimization
+
+### Improved
+
+- **Resource Response System**
+  - Implemented generic dynamic resource system for all MCP tools
+  - Optimized resource responses for better performance
+  - Enhanced resource configuration management
+  - Better separation of concerns in resource handling
+
+- **Device Configuration**
+  - Added getDeviceConfig functionality for improved device emulation
+  - Enhanced device profile management system
+  - Better integration with existing device configuration
+
+### Fixed
+
+- Test file organization and structure improvements
+- Resource response optimization issues
+- Enhanced error handling in dynamic resource system
+
 ## [1.7.0] - 2025-01-08
 
 ### Added
