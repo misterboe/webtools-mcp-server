@@ -123,7 +123,7 @@ You can use this server directly with Claude Desktop by adding it to your config
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.6.1"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@1.7.2"]
     }
   }
 }

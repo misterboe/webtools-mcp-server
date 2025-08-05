@@ -15,7 +15,8 @@
       "mcp__webtools__webtool_readpage",
       "mcp__webtools__webtool_gethtml",
       "Bash(timeout 3s npm start)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(npm view:*)"
     ],
     "deny": []
   },

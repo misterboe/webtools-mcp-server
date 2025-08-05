@@ -24,6 +24,7 @@ pids
 
 # Testing
 coverage/
+!src/tools/performance/coverage/
 .tests/tmp/
 
 # Production build

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.2] - 2025-08-05
+
+### Fixed
+
+- **Coverage Analysis Tool Packaging**
+  - Fixed missing coverage analysis tool files in npm package
+  - Added exception to .gitignore for `src/tools/performance/coverage/` directory
+  - Resolves `ERR_MODULE_NOT_FOUND` error when using npm package version
+  - Coverage tool functionality now works correctly with both local and npm installations
+
 ## [1.7.1] - 2025-08-01
 
 ### Added

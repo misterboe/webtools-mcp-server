@@ -51,7 +51,7 @@ export function createServer() {
   const server = new Server(
     {
       name: "webtools-server",
-      version: "1.7.0",
+      version: "1.7.2",
     },
     {
       capabilities: {
