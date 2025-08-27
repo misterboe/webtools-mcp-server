@@ -114,19 +114,235 @@ Or use it directly with npx:
 npx @bschauer/webtools-mcp-server
 ```
 
-### Claude Desktop Integration
+## Quick Start
 
-You can use this server directly with Claude Desktop by adding it to your configuration:
-
+### For Claude Desktop Users
 ```json
 {
   "mcpServers": {
     "webtools": {
       "command": "npx",
-      "args": ["-y", "@bschauer/webtools-mcp-server@1.7.2"]
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "BASIC"
+      }
     }
   }
 }
+```
+*This configuration uses only basic tools and reduces token usage by 89%.*
+
+### For Claude Code Users
+```bash
+# Install with token optimization
+claude mcp add webtools-basic --env ENABLED_TOOLS=BASIC -- npx -y @bschauer/webtools-mcp-server@latest
+```
+
+### Test Your Installation
+Once configured, you can ask Claude:
+- "Please extract the main content from https://example.com"
+- "Take a screenshot of https://google.com"
+- "Analyze the performance of https://news.ycombinator.com"
+
+## Token Usage Optimization
+
+By default, all tools are loaded (~10.3k tokens). You can reduce token usage by enabling only the tools you need:
+
+### Configuration Options
+
+1. **Environment Variable**: `ENABLED_TOOLS=<preset|tools>`
+2. **CLI Argument**: `--tools=<preset|tools>`
+
+### Available Presets
+
+| Preset | Tools Included | Token Usage | Reduction | Use Case |
+|--------|----------------|-------------|-----------|----------|
+| `ALL` | All 10 tools | ~10.3k tokens | 0% | Full functionality (default) |
+| `BASIC` | `gethtml`, `readpage` | ~1k tokens | **89%** | Content extraction only |
+| `WEB` | `gethtml`, `readpage`, `screenshot` | ~1.5k tokens | 85% | Web content + visuals |
+| `DEBUG` | `gethtml`, `readpage`, `screenshot`, `debug` | ~2.5k tokens | 76% | Content + debugging |
+| `PERFORMANCE` | All performance analysis tools | ~6k tokens | 42% | Performance testing only |
+| `FULL_ANALYSIS` | All tools except performance test framework | ~9k tokens | 13% | Complete analysis suite |
+
+**Individual Tools Available:**
+- `webtool_gethtml` - Raw HTML extraction
+- `webtool_readpage` - Markdown conversion  
+- `webtool_screenshot` - Screenshot capture
+- `webtool_debug` - Debug console + network monitoring
+- `webtool_lighthouse` - Lighthouse audits
+- `webtool_performance_trace` - Performance tracing
+- `webtool_coverage_analysis` - Code coverage analysis
+- `webtool_web_vitals` - Core Web Vitals metrics
+- `webtool_network_monitor` - Network activity analysis
+- `webtool_performance_test` - Cross-device performance testing
+
+### Examples
+
+```bash
+# Use only basic tools (90% token reduction)
+ENABLED_TOOLS=BASIC npx @bschauer/webtools-mcp-server
+
+# Use performance tools only
+npx @bschauer/webtools-mcp-server --tools=PERFORMANCE
+
+# Use web + debugging tools
+ENABLED_TOOLS=DEBUG npx @bschauer/webtools-mcp-server
+
+# Use specific individual tools
+npx @bschauer/webtools-mcp-server --tools=webtool_gethtml,webtool_readpage,webtool_screenshot
+
+# Show all available options
+npx @bschauer/webtools-mcp-server --help
+
+# Use environment variable with any command
+export ENABLED_TOOLS=WEB
+npx @bschauer/webtools-mcp-server
+```
+
+### Claude Desktop Integration
+
+#### Basic Configuration (All Tools)
+```json
+{
+  "mcpServers": {
+    "webtools": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"]
+    }
+  }
+}
+```
+
+#### Token-Optimized Configurations
+
+**Basic Tools Only (89% Token Reduction)**
+```json
+{
+  "mcpServers": {
+    "webtools-basic": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "BASIC"
+      }
+    }
+  }
+}
+```
+
+**Web Content + Screenshots**
+```json
+{
+  "mcpServers": {
+    "webtools-web": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "WEB"
+      }
+    }
+  }
+}
+```
+
+**Performance Analysis Only**
+```json
+{
+  "mcpServers": {
+    "webtools-perf": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "PERFORMANCE"
+      }
+    }
+  }
+}
+```
+
+**Custom Tool Selection**
+```json
+{
+  "mcpServers": {
+    "webtools-custom": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "webtool_gethtml,webtool_readpage,webtool_screenshot,webtool_debug"
+      }
+    }
+  }
+}
+```
+
+**Using CLI Arguments (Alternative)**
+```json
+{
+  "mcpServers": {
+    "webtools": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest", "--tools=BASIC"]
+    }
+  }
+}
+```
+
+### Claude Code Integration
+
+Claude Code provides a simplified command-line interface for adding MCP servers:
+
+#### Basic Installation (All Tools)
+```bash
+# Install with all tools (default)
+claude mcp add webtools -- npx -y @bschauer/webtools-mcp-server@latest
+```
+
+#### Token-Optimized Installations
+```bash
+# Basic tools only (89% token reduction)
+claude mcp add webtools-basic --env ENABLED_TOOLS=BASIC -- npx -y @bschauer/webtools-mcp-server@latest
+
+# Web content + screenshots
+claude mcp add webtools-web --env ENABLED_TOOLS=WEB -- npx -y @bschauer/webtools-mcp-server@latest
+
+# Performance analysis only
+claude mcp add webtools-perf --env ENABLED_TOOLS=PERFORMANCE -- npx -y @bschauer/webtools-mcp-server@latest
+
+# Debug tools
+claude mcp add webtools-debug --env ENABLED_TOOLS=DEBUG -- npx -y @bschauer/webtools-mcp-server@latest
+
+# Custom tool selection
+claude mcp add webtools-custom --env ENABLED_TOOLS=webtool_gethtml,webtool_readpage,webtool_screenshot -- npx -y @bschauer/webtools-mcp-server@latest
+```
+
+#### Using CLI Arguments (Alternative Approach)
+```bash
+# Using --tools parameter instead of environment variable
+claude mcp add webtools-basic -- npx -y @bschauer/webtools-mcp-server@latest --tools=BASIC
+claude mcp add webtools-perf -- npx -y @bschauer/webtools-mcp-server@latest --tools=PERFORMANCE
+```
+
+#### Managing Your Installation
+```bash
+# List all MCP servers
+claude mcp list
+
+# Get details about the webtools server
+claude mcp get webtools-basic
+
+# Remove a server
+claude mcp remove webtools-basic
+
+# Check server status in Claude Code
+/mcp
+```
+
+#### Project-Wide Installation (Team Sharing)
+```bash
+# Install for the entire project team
+claude mcp add webtools-basic --scope project --env ENABLED_TOOLS=BASIC -- npx -y @bschauer/webtools-mcp-server@latest
+
+# This creates a .mcp.json file in your project root that can be committed to version control
 ```
 
 ## Configuration

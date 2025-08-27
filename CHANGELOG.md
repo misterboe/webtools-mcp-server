@@ -1,5 +1,137 @@
 # Changelog
 
+## [1.8.0] - 2025-08-27
+
+### 🚀 Major Features
+
+#### Token Usage Optimization
+- **NEW**: Selective tool loading to dramatically reduce token consumption
+- **NEW**: 6 predefined presets for common use cases
+- **NEW**: Individual tool selection support
+- **Result**: Up to **89% token reduction** (from ~10.3k to ~1k tokens with BASIC preset)
+
+#### Configuration System
+- **NEW**: `ENABLED_TOOLS` environment variable support
+- **NEW**: `--tools` CLI parameter for direct configuration
+- **NEW**: `--help` command with comprehensive documentation
+- **NEW**: Automatic token usage estimation and reporting
+- **NEW**: Tool configuration manager with validation and error handling
+
+#### Presets Available
+- `ALL`: All tools (~10.3k tokens) - default for compatibility
+- `BASIC`: HTML + Markdown only (~1k tokens, 89% reduction)
+- `WEB`: Web content + screenshots (~1.5k tokens, 85% reduction)
+- `DEBUG`: Web + debugging tools (~2.5k tokens, 76% reduction)
+- `PERFORMANCE`: Performance analysis tools (~6k tokens, 42% reduction)
+- `FULL_ANALYSIS`: All tools except performance test framework (~9k tokens)
+
+#### Architecture Improvements
+- **NEW**: Lazy loading system for tool handlers
+- **NEW**: Dynamic tool registration based on configuration
+- **NEW**: Improved logging with tool configuration details
+- **NEW**: Enhanced error handling for invalid tool configurations
+
+### 📦 Dependency Updates
+
+#### Major Updates
+- **Updated**: `@modelcontextprotocol/sdk` from 1.0.4 → 1.17.4
+  - Supports new Streamable HTTP transport (backward compatible)
+  - Enhanced MCP protocol features
+  - No breaking changes for stdio transport usage
+- **Updated**: `sharp` from 0.33.2 → 0.34.3
+  - Improved wide-character support
+  - Enhanced alpha channel handling
+  - Updated GIF output defaults
+
+#### Minor Updates
+- **Updated**: `chrome-launcher` to latest version
+- **Updated**: `lighthouse` to latest version
+- **Updated**: `turndown` to latest version
+- **Updated**: `dotenv` to latest version
+
+### 📖 Documentation
+
+#### Comprehensive README Updates
+- **NEW**: Quick Start section for immediate setup
+- **NEW**: Complete token usage optimization guide
+- **NEW**: Detailed preset comparison table
+- **NEW**: Claude Desktop integration examples
+- **NEW**: Claude Code integration with `claude mcp add` commands
+- **NEW**: Team collaboration setup instructions
+- **NEW**: Troubleshooting and management commands
+
+#### Developer Resources
+- **NEW**: `TASK.md` - Implementation guide for other MCP developers
+- **Updated**: `CLAUDE.md` with token optimization information
+- **NEW**: Configuration examples for all deployment scenarios
+
+### 🔧 Technical Improvements
+
+#### Performance
+- Reduced memory footprint through lazy loading
+- Faster server startup when using limited tool sets
+- Cached tool handler imports for efficiency
+
+#### Reliability
+- Enhanced error handling and validation
+- Improved logging with structured information
+- Better fallback mechanisms for invalid configurations
+
+#### Developer Experience
+- Comprehensive help system with examples
+- Clear configuration hierarchy and precedence
+- Detailed error messages with suggestions
+
+### 🔄 Backward Compatibility
+
+- **100% backward compatible** - all existing configurations continue to work
+- Default behavior unchanged (all tools loaded) unless explicitly configured
+- Existing Claude Desktop and Claude Code integrations unaffected
+- All tool APIs and functionality preserved
+
+### 🧪 Testing
+
+- All tests updated and passing
+- New test coverage for configuration system
+- Validation across different tool combinations
+- Integration testing with both Claude platforms
+
+### 💡 Migration Guide
+
+#### For Existing Users
+No action required - your existing setup will continue working as before.
+
+#### For New Users Wanting Token Optimization
+**Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "webtools": {
+      "command": "npx",
+      "args": ["-y", "@bschauer/webtools-mcp-server@latest"],
+      "env": {
+        "ENABLED_TOOLS": "BASIC"
+      }
+    }
+  }
+}
+```
+
+**Claude Code:**
+```bash
+claude mcp add webtools-basic --env ENABLED_TOOLS=BASIC -- npx -y @bschauer/webtools-mcp-server@latest
+```
+
+### 🎯 Impact Summary
+
+- **Token Efficiency**: Up to 89% reduction in token usage
+- **User Choice**: 6 presets + individual tool selection
+- **Developer Friendly**: Comprehensive documentation and examples
+- **Production Ready**: Extensive testing and backward compatibility
+- **Future Proof**: Updated dependencies and modern architecture
+
+---
+
 ## [1.7.2] - 2025-08-05
 
 ### Fixed

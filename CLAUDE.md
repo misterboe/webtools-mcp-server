@@ -18,6 +18,14 @@ This is a Model Context Protocol (MCP) server that provides comprehensive web an
 ### Installation & Usage
 - `npm install -g @bschauer/webtools-mcp-server` - Global installation
 - `npx @bschauer/webtools-mcp-server` - Direct execution via npx
+- `node src/index.js --help` - Show configuration help and token optimization options
+
+### Token Usage Optimization
+- **Default**: All tools loaded (~10.3k tokens)
+- **ENABLED_TOOLS environment variable**: Control which tools are loaded
+- **--tools CLI argument**: Override tool selection
+- **Available presets**: ALL, BASIC (~1k tokens), WEB, DEBUG, PERFORMANCE, FULL_ANALYSIS
+- **Individual tools**: Comma-separated list of specific tools
 
 ## Architecture
 
@@ -119,6 +127,11 @@ The server includes a sophisticated performance analysis system with multiple sp
 - Configuration can be overridden via environment variables or config files
 
 ### Environment Variables
+- `ENABLED_TOOLS=<preset|tools>` - Control which tools are loaded to optimize token usage
+  - Available presets: `ALL`, `BASIC`, `WEB`, `DEBUG`, `PERFORMANCE`, `FULL_ANALYSIS`
+  - Individual tools: comma-separated list (e.g., `webtool_gethtml,webtool_readpage`)
+  - Default: `ALL` (load all tools, ~10.3k tokens)
+  - Example: `ENABLED_TOOLS=BASIC` (~1k tokens, 89% reduction)
 - `IGNORE_SSL_ERRORS=true` - Sets default SSL error handling for all tools (useful for development environments like DDEV)
 - `USE_PROXY=true` - Enables proxy support
 - `PROXY_URL` - Proxy server URL

@@ -1,6 +1,6 @@
 {
   "name": "@bschauer/webtools-mcp-server",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "description": "MCP server providing web analysis tools including screenshot, debug, performance, security, accessibility, SEO, and asset optimization capabilities",
   "main": "src/index.js",
   "bin": {
@@ -31,13 +31,13 @@
   "author": "bschauer",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@modelcontextprotocol/sdk": "^1.17.4",
     "chrome-launcher": "^1.1.2",
     "https-proxy-agent": "^7.0.2",
     "lighthouse": "^12.4.0",
     "node-fetch": "^3.3.2",
     "puppeteer": "^22.8.2",
-    "sharp": "^0.33.2",
+    "sharp": "^0.34.3",
     "turndown": "^7.1.2"
   },
   "devDependencies": {

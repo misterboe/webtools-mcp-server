@@ -5,21 +5,14 @@ import { logInfo, logError } from "./utils/logging.js";
 import { checkSiteAvailability } from "./utils/html.js";
 import { fetchWithRetry } from "./utils/fetch.js";
 
-// Import tool handlers
-import { getHtml, readPage } from "./tools/html.js";
-import { screenshot } from "./tools/screenshot.js";
-import { debug } from "./tools/debug.js";
-import { runLighthouse } from "./tools/lighthouse.js";
-import { performanceTrace } from "./tools/performance/trace/index.js";
-import { runCoverageAnalysis } from "./tools/performance/coverage/index.js";
-import { runWebVitalsAnalysis } from "./tools/performance/web_vitals/index.js";
-import { runNetworkMonitor } from "./tools/performance/network/index.js";
-import { runPerformanceTest } from "./tools/performance/test_framework/index.js";
+// Tool handler imports - will be loaded dynamically based on configuration
+// Lazy loading to reduce memory footprint when tools are not needed
 
 // Import configurations
 import { TOOL_DEFINITIONS } from "./config/tool-definitions.js";
 import { SERVER_CAPABILITIES } from "./config/capabilities.js";
 import { ResourceConfigManager } from "./config/resource-configs.js";
+import { estimateTokenUsage } from "./config/tool-manager.js";
 
 // Import prompts
 import { PROMPT_DEFINITIONS, PROMPT_HANDLERS } from "./prompts/index.js";
@@ -30,28 +23,110 @@ import { createResourceManager } from "./utils/resource-manager.js";
 // Dynamic resource storage
 const dynamicResources = new Map();
 
-// Initialize resource management system
-const resourceManager = createResourceManager(dynamicResources);
-const configManager = new ResourceConfigManager().loadPreset('ALL_ENABLED');
+// Tool handler cache for lazy loading
+const toolHandlerCache = new Map();
 
-// Configure resource handling for all tools
-for (const [toolName, config] of Object.entries(configManager.getConfig())) {
-  if (config.enabled) {
-    resourceManager.enableForTool(toolName, config);
-    logInfo("resource", `🚀 Resource support enabled for tool: ${toolName}`);
+/**
+ * Lazy load a tool handler
+ * @param {string} toolName - Name of the tool to load
+ * @returns {Function} Tool handler function
+ */
+async function loadToolHandler(toolName) {
+  if (toolHandlerCache.has(toolName)) {
+    return toolHandlerCache.get(toolName);
   }
+
+  let handler;
+  
+  switch (toolName) {
+    case "webtool_gethtml":
+      const { getHtml } = await import("./tools/html.js");
+      handler = getHtml;
+      break;
+    case "webtool_readpage":
+      const { readPage } = await import("./tools/html.js");
+      handler = readPage;
+      break;
+    case "webtool_screenshot":
+      const { screenshot } = await import("./tools/screenshot.js");
+      handler = screenshot;
+      break;
+    case "webtool_debug":
+      const { debug } = await import("./tools/debug.js");
+      handler = debug;
+      break;
+    case "webtool_lighthouse":
+      const { runLighthouse } = await import("./tools/lighthouse.js");
+      handler = runLighthouse;
+      break;
+    case "webtool_performance_trace":
+      const { performanceTrace } = await import("./tools/performance/trace/index.js");
+      handler = performanceTrace;
+      break;
+    case "webtool_coverage_analysis":
+      const { runCoverageAnalysis } = await import("./tools/performance/coverage/index.js");
+      handler = runCoverageAnalysis;
+      break;
+    case "webtool_web_vitals":
+      const { runWebVitalsAnalysis } = await import("./tools/performance/web_vitals/index.js");
+      handler = runWebVitalsAnalysis;
+      break;
+    case "webtool_network_monitor":
+      const { runNetworkMonitor } = await import("./tools/performance/network/index.js");
+      handler = runNetworkMonitor;
+      break;
+    case "webtool_performance_test":
+      const { runPerformanceTest } = await import("./tools/performance/test_framework/index.js");
+      handler = runPerformanceTest;
+      break;
+    default:
+      throw new Error(`Unknown tool: ${toolName}`);
+  }
+
+  toolHandlerCache.set(toolName, handler);
+  return handler;
 }
 
 /**
  * Create and configure the MCP server
+ * @param {string[]} enabledTools - Array of enabled tool names
  * @returns {Server} The configured server instance
  */
-export function createServer() {
+export function createServer(enabledTools = []) {
+  // Filter tool definitions based on enabled tools
+  const filteredToolDefinitions = enabledTools.length > 0 
+    ? TOOL_DEFINITIONS.filter(tool => enabledTools.includes(tool.name))
+    : TOOL_DEFINITIONS;
+
+  // Log tool configuration
+  const tokenUsage = estimateTokenUsage(enabledTools.length > 0 ? enabledTools : TOOL_DEFINITIONS.map(t => t.name));
+  logInfo("tool-manager", "🎯 Tool Configuration", {
+    enabledTools: filteredToolDefinitions.length,
+    totalAvailable: TOOL_DEFINITIONS.length,
+    tools: filteredToolDefinitions.map(t => t.name),
+    estimatedTokens: `${tokenUsage.totalTokens.toLocaleString()} tokens`,
+    tokenReduction: enabledTools.length > 0 && enabledTools.length < TOOL_DEFINITIONS.length 
+      ? `${tokenUsage.reductionPercent}% reduction (${tokenUsage.savedTokens.toLocaleString()} tokens saved)`
+      : "no reduction (all tools loaded)"
+  });
+
+  // Initialize resource management system for enabled tools only
+  const resourceManager = createResourceManager(dynamicResources);
+  const configManager = new ResourceConfigManager().loadPreset('ALL_ENABLED');
+  
+  // Configure resource handling only for enabled tools
+  for (const [toolName, config] of Object.entries(configManager.getConfig())) {
+    if (config.enabled && (enabledTools.length === 0 || enabledTools.includes(toolName))) {
+      resourceManager.enableForTool(toolName, config);
+      logInfo("resource", `🚀 Resource support enabled for tool: ${toolName}`);
+    }
+  }
+
   // Create server instance
   const server = new Server(
     {
       name: "webtools-server",
-      version: "1.7.2",
+      version: "1.8.0",
     },
     {
       capabilities: {
@@ -62,8 +137,8 @@ export function createServer() {
     }
   );
 
-  // Set up request handlers
-  setupRequestHandlers(server);
+  // Set up request handlers with filtered tools
+  setupRequestHandlers(server, filteredToolDefinitions, resourceManager);
 
   // Set up error handling
   server.onerror = (error) => {
@@ -76,12 +151,14 @@ export function createServer() {
 /**
  * Set up request handlers for the server
  * @param {Server} server - The server instance
+ * @param {Array} toolDefinitions - Filtered tool definitions based on enabled tools
+ * @param {Object} resourceManager - Resource manager instance
  */
-function setupRequestHandlers(server) {
-  // List available tools
+function setupRequestHandlers(server, toolDefinitions, resourceManager) {
+  // List available tools (only enabled ones)
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: TOOL_DEFINITIONS,
+      tools: toolDefinitions,
     };
   });
 
@@ -156,25 +233,14 @@ function setupRequestHandlers(server) {
       // Execute tool with automatic resource handling
       let result;
       
-      // Map tool names to their handler functions
-      const toolHandlers = {
-        "webtool_gethtml": getHtml,
-        "webtool_readpage": readPage,
-        "webtool_screenshot": screenshot,
-        "webtool_debug": debug,
-        "webtool_lighthouse": runLighthouse,
-        "webtool_performance_trace": performanceTrace,
-        "webtool_coverage_analysis": runCoverageAnalysis,
-        "webtool_web_vitals": runWebVitalsAnalysis,
-        "webtool_network_monitor": runNetworkMonitor,
-        "webtool_performance_test": runPerformanceTest
-      };
-
-      // Get the tool handler
-      const toolHandler = toolHandlers[name];
-      if (!toolHandler) {
-        throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+      // Check if tool is enabled
+      const enabledToolNames = toolDefinitions.map(t => t.name);
+      if (!enabledToolNames.includes(name)) {
+        throw new McpError(ErrorCode.MethodNotFound, `Tool not enabled: ${name}. Available tools: ${enabledToolNames.join(", ")}`);
       }
+
+      // Load tool handler dynamically (lazy loading)
+      const toolHandler = await loadToolHandler(name);
 
       // Execute tool and process result through resource manager
       const toolResult = await toolHandler(args);
@@ -291,13 +357,7 @@ export async function startServer(server) {
     transport: "stdio",
   });
   
-  // Log resource management status
-  const summary = configManager.getConfigSummary();
-  logInfo("resource", "🎯 Resource Management System Active", {
-    enabledTools: summary.enabledCount,
-    totalTools: summary.totalTools,
-    tools: summary.enabledTools
-  });
+  // Resource management system is already logged in createServer
 
   // Handle graceful shutdown
   process.on("SIGINT", async () => {

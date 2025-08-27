@@ -24,3 +24,13 @@ export const PROXY_CONFIG = {
 export const SSL_CONFIG = {
   ignoreSSLErrorsByDefault: process.env.IGNORE_SSL_ERRORS !== "false",
 };
+
+// Tool configuration (can be overridden by environment variables or CLI arguments)
+export const TOOL_CONFIG = {
+  // Default tools configuration - empty means load all tools
+  enabledTools: process.env.ENABLED_TOOLS || null,
+  // Available configuration methods
+  configMethods: ["ENABLED_TOOLS environment variable", "--tools CLI argument"],
+  // Default fallback behavior
+  fallbackToAll: true,
+};
